@@ -4,6 +4,7 @@ from client.display_widgets.clocks import *
 from client.display_widgets.top_banners import *
 from client.display_widgets.indicators import *
 from client.display_widgets.text_fields import *
+from client.display_widgets.fullscreen_slates import *
 from dataclasses import dataclass
 import logging
 from modules.osc import *
@@ -14,7 +15,9 @@ import threading
 from time import sleep
 import json
 from PIL import ImageColor
+import time
 
+#Dataclass to store a display_surface and it's attributes
 @dataclass
 class Display_Section:
     id : int
@@ -30,12 +33,15 @@ class Window:
         self.logger = logging.getLogger(__name__)
 
         #Client listen Socket - Defaults
-        self.ip_address = "127.0.0.1"
-        self.listen_port = 1338
+        self.client_ip_address = "127.0.0.1"
+        self.client_listen_port = 1338
 
         #Server listen Socket - Defaults
         self.server_ip_address = "127.0.0.1"
         self.server_tcp_port = 1339
+
+        #Device information store
+        self.device_information_dict = {}
 
         #Create a pygame clock object for limiting FPS
         self.clock = pygame.time.Clock()
@@ -91,12 +97,12 @@ class Window:
                                         "indicator_6_colour",
                                         "timestamp"]
         
-        #["indicator_1_label","indicator_2_label","indicator_3_label","indicator_4_label","indicator_5_label","indicator_6_label",]
-        
+        #Do the setup Commands
         self.__setup()
 
-        #Set Running to True
-        self.running = True
+        #State variables to signal to functions state of program
+        self.running = True #Signals if app is running
+        self.reloading_display = False  #Signals if we are re-rendering the display
 
 #--------------------------------Py-Game-Logic--------------------------------------------
     #Start the App
@@ -128,13 +134,14 @@ class Window:
         #Fill the screen with a color to wipe away anything from last frame
         self.display_surface.fill(self.bg_colour)
 
-        #Render Each Widget
+        #Render each display surface onto the main surface
         for display_section_id in self.blit_dict:
-            display_section : Display_Section= self.blit_dict[display_section_id]
+            display_section : Display_Section = self.blit_dict[display_section_id]
             self.display_surface.blit(display_section.surface, display_section.top_left_screen_coord)
 
+        #Render the widgets on each display surface
         for display_section_id in self.widget_dict:
-            widget = self.widget_dict[display_section_id]
+            widget : Widget = self.widget_dict[display_section_id]
             widget.render()
 
 
@@ -150,66 +157,6 @@ class Window:
 #--------------------------------------------------------------------------------------- 
 
 #--------------------------------Display-rendering-Logic--------------------------------------------
-
-    def build_layout(self, layout:int, top_banner:bool, messaging:bool):
-
-        self.remaining_display_height = self.display_height
-        self.remaining_display_width = self.display_width
-
-        #Order of if statements below is the order the layout will be rendered in
-
-        #Top Banner With Messaging
-        if (top_banner == True) and (messaging == True):
-            top_banner_height = self.display_height*0.15
-
-            self.surface_top_banner = pygame.Surface((self.display_width, top_banner_height))
-            self.__add_surface_to_blit(self.surface_top_banner, (0,0))
-
-            self.top_banner_logo_date_location = Logo_Date_Location_Top_Banner(self.surface_top_banner)
-            self.__add_widget_to_render(self.top_banner_logo_date_location)
-
-            self.top_banner_ticker = Ticker_Banner(self.surface_top_banner)
-            self.__add_widget_to_render(self.top_banner_ticker)
-            
-            self.remaining_display_height -= (top_banner_height)
-    
-        #1 Column - 1 Row
-        if layout == 0:
-            column_height = self.remaining_display_height
-            
-            self.surface_column_1 = pygame.Surface((self.display_width, column_height))
-            self.__add_surface_to_blit(self.surface_column_1, (0, self.display_height-self.remaining_display_height))
-
-        #2 Columns - 1 Row
-        elif layout == 1:
-            column_height = self.remaining_display_height
-            
-            self.surface_column_1 = pygame.Surface((self.display_width/2, column_height))
-            self.__add_surface_to_blit(self.surface_column_1, (0, self.display_height-self.remaining_display_height))
-            self.surface_column_2 = pygame.Surface((self.display_width/2, column_height))
-            self.__add_surface_to_blit(self.surface_column_2, (self.display_width/2, self.display_height-self.remaining_display_height))
-
-        #2 Columns - 1st column 1 row, 2nd column 2 rows
-        elif layout == 2:
-            column_height = self.remaining_display_height
-            
-            self.surface_column_1 = pygame.Surface((self.display_width/2, column_height))
-            self.__add_surface_to_blit(self.surface_column_1, (0, self.display_height-self.remaining_display_height))
-
-            self.surface_column_2_row_0 = pygame.Surface((self.display_width/2, column_height/2))
-            self.__add_surface_to_blit(self.surface_column_2_row_0, (self.display_width/2, self.display_height-self.remaining_display_height))
-            self.surface_column_2_row_1 = pygame.Surface((self.display_width/2, column_height/2))
-            self.__add_surface_to_blit(self.surface_column_2_row_1, (self.display_width/2, (self.display_height-self.remaining_display_height) + (column_height/2)))
-
-        #Messaging only no top banner - this results in message being overlayed on the GUI when enabled
-        if (top_banner == False) and (messaging == True):
-            messaging_top_banner_height = self.display_height*0.15
-            #Transparent surface
-            self.surface_messaging_top_banner = pygame.Surface((self.display_width, messaging_top_banner_height), pygame.SRCALPHA, 32)
-            self.__add_surface_to_blit(self.surface_messaging_top_banner, (0,0))
-
-            self.top_banner_ticker = Ticker_Banner(self.surface_messaging_top_banner)
-            self.__add_widget_to_render(self.top_banner_ticker)
 
     def build_layout_custom(self, layout_matrix:int, top_banner:bool, messaging:bool):
 
@@ -302,8 +249,22 @@ class Window:
             self.display_section_top_banner = Display_Section(-1, (0,0), self.display_width, self.display_height, self.surface_top_banner)
             self.__add_surface_to_blit(self.display_section_top_banner)
 
-            self.top_banner_ticker = Ticker_Banner(self.surface_messaging_top_banner)
+            self.top_banner_ticker = Ticker_Banner(self.surface_top_banner)
             self.__add_widget_to_render(self.top_banner_ticker)
+
+        #Build the fullscreen logo slate
+        self.surface_fullscreen_logo_slate = pygame.Surface((self.display_width, self.display_height), pygame.SRCALPHA, 32)
+        self.display_section_fullscreen_logo_slate = Display_Section(-3, (0,0), self.display_width, self.display_height, self.surface_fullscreen_logo_slate)
+        self.__add_surface_to_blit(self.display_section_fullscreen_logo_slate)
+        self.fullscreen_logo_slate = Logo_Slate(self.surface_fullscreen_logo_slate)
+        self.__add_widget_to_render(-3, self.fullscreen_logo_slate)
+
+        #Build the identify slate
+        self.surface_identify_slate = pygame.Surface((self.display_width, self.display_height), pygame.SRCALPHA, 32)
+        self.display_section_identify_slate = Display_Section(-4, (0,self.grid_screen_y_origin), self.display_width, self.remaining_display_height, self.surface_identify_slate)
+        self.__add_surface_to_blit(self.display_section_identify_slate)
+        self.fullscreen_identify_slate = Identify_Slate(self.surface_identify_slate)
+        self.__add_widget_to_render(-4, self.fullscreen_identify_slate)
 
     def find_display_section_dimensions(self, display_section_id:int, top_left_coord:tuple, total_columns:int, total_rows:int):
         """Finds the dimension of a display section"""
@@ -366,43 +327,6 @@ class Window:
             x = 0 #Reset column position to 0 as we are in a new row
 
         return display_section_id_dict
-    
-    def add_widgets_test(self):
-
-        self.clock_1 = Studio_Clock(self.blit_dict[0].surface)
-        self.__add_widget_to_render(self.clock_1)
-        #self.clock_1.alarm_indicator_flash_enable()
-        #self.clock_1.alarm_indicator_indicator_flash_disable()
-
-
-        #self.clock_2 = Traditional_Clock(self.blit_dict[1].surface)
-        #self.__add_widget_to_render(self.clock_2)
-        #self.clock_2.alarm_indicator_flash_enable()
-        #self.clock_2.alarm_indicator_indicator_flash_disable()
-
-        #self.text_field1 = Title_Data(self.blit_dict[2].surface, "Now Playing:", (73, 73, 73))
-        #self.__add_widget_to_render(self.text_field1)
-        #self.text_field1.set_field_data("Counting Stars","One Republic")
-
-        #self.text_field2 = Title_Data(self.surface_column_2_row_1, "Now Playing:", (73, 73, 73))
-        #self.__add_widget_to_render(self.text_field2)
-        #self.text_field2.set_field_data("Azizam - Ed Sheeran")
-        #self.text_field2.clear_field_data()
-
-
-        #self.indicator_lights = Indicator_Lamps_Vertical(self.surface_column_2, 24, ["Label_1","Label_2","Label_3","Label_4","Label_5","Label_6","Label_1","Label_2","Label_3","Label_4","Label_5","Label_6","Label_1","Label_2","Label_3","Label_4","Label_5","Label_6","Label_1","Label_2","Label_3","Label_4","Label_5","Label_6"], [(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0)])
-        self.indicator_lights = Indicator_Lamps_Vertical(self.blit_dict[1].surface, 6, ["Mic","TX","Line 1","Line 2","Whatsapp","Control"], [(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0),(255, 0, 0)])
-        #self.indicator_lights = Indicator_Lamps_Vertical(self.blit_dict[3].surface, 2, ["Mic","TX"], [(255, 0, 0),(255, 0, 0)])
-        #self.indicator_lights = Indicator_Lamps_Vertical(self.surface_column_2, 1, ["TX asdfsadfasdf"], [(255, 0, 0)])
-        self.__add_widget_to_render(self.indicator_lights)
-        
-        #self.indicator_lights.indicator_flash_enable([0,2,3])
-        #self.indicator_lights.indicator_on([1,5,6,7,8])
-        #self.indicator_lights.indicator_flash_disable([0,2,3])
-        #self.indicator_lights.indicator_off([1,5,6,7,8])
-
-        self.top_banner_ticker.set_ticker_text("A very long Test Message")
-        #self.top_banner_ticker.ticker_on()
 
     def add_widget_to_surface(self, widget, surface_id, **args):
         """Adds a widget to a surface, optional args for widget configuration"""
@@ -426,40 +350,50 @@ class Window:
 
     def __render_diplay_template_file(self):
         #Get the timestamp of the cached display template
+        self.logger.debug("******************Rendering Display Template******************")
+        try:
             template_dict = open_json_file("client/data/display_template.json")
             self.layout : str = template_dict["layout"]
             self.total_indicators : int = template_dict["indicators_displayed"]
             clock_type : str = template_dict["clock_type"]
+        except Exception as e:
+            self.logger.error(f"Unable to open display template file:{e}")
+            template_dict = open_json_file("client/data/default_display_template.json")
+            self.layout : str = template_dict["layout"]
+            self.total_indicators : int = template_dict["indicators_displayed"]
+            clock_type : str = template_dict["clock_type"]
 
-            if self.layout == "Clock With Indicators":
-                layout_matrix = [[0,1],
-                                 [0,1]]
-                self.build_layout_custom(layout_matrix, True, True)
-                self.add_widget_to_surface(clock_type, 0)
+        self.logger.debug(f"Layout is {self.layout}")
+        if self.layout == "Clock With Indicators":
+            
+            layout_matrix = [[0,1],
+                                [0,1]]
+            self.build_layout_custom(layout_matrix, True, True)
+            self.add_widget_to_surface(clock_type, 0)
 
-                #make a list of indicator labels
-                indicator_label_list = []
-                indicator_on_rgb_colour_list = []
-                indicator_flash_list = []
-                for i in range(1, self.total_indicators+1):
-                    #Labels
-                    indicator_label = template_dict[f"indicator_{i}_label"]
-                    indicator_label_list.append(indicator_label)
-                    #Colours
-                    indicator_colour_hex = template_dict[f"indicator_{i}_colour"]
-                    indicator_colour_rgb = ImageColor.getcolor(indicator_colour_hex, "RGB")
-                    indicator_on_rgb_colour_list.append(indicator_colour_rgb)
-                    #Flash
-                    indicator_flash = template_dict[f"indicator_{i}_flash"]
-                    indicator_flash_list.append(indicator_flash)
+            #make a list of indicator labels
+            indicator_label_list = []
+            indicator_on_rgb_colour_list = []
+            indicator_flash_list = []
+            for i in range(1, self.total_indicators+1):
+                #Labels
+                indicator_label = template_dict[f"indicator_{i}_label"]
+                indicator_label_list.append(indicator_label)
+                #Colours
+                indicator_colour_hex = template_dict[f"indicator_{i}_colour"]
+                indicator_colour_rgb = ImageColor.getcolor(indicator_colour_hex, "RGB")
+                indicator_on_rgb_colour_list.append(indicator_colour_rgb)
+                #Flash
+                indicator_flash = template_dict[f"indicator_{i}_flash"]
+                indicator_flash_list.append(indicator_flash)
 
-                self.add_widget_to_surface("Indicators", 1, number_of_indicators=self.total_indicators, indicator_label_list=indicator_label_list, indicator_on_rgb_colour_list=indicator_on_rgb_colour_list, indicator_flash_list=indicator_flash_list)
+            self.add_widget_to_surface("Indicators", 1, number_of_indicators=self.total_indicators, indicator_label_list=indicator_label_list, indicator_on_rgb_colour_list=indicator_on_rgb_colour_list, indicator_flash_list=indicator_flash_list)
 
-            elif self.layout == "Fullscreen Clock":
-                layout_matrix = [[0,0],
-                                 [0,0]]
-                self.build_layout_custom(layout_matrix, True, True)
-                self.add_widget_to_surface(clock_type, 0)
+        elif self.layout == "Fullscreen Clock":
+            layout_matrix = [[0,0],
+                                [0,0]]
+            self.build_layout_custom(layout_matrix, True, True)
+            self.add_widget_to_surface(clock_type, 0)
 
 
 #----------------------------------Module Specific Code---------------------------------
@@ -471,7 +405,7 @@ class Window:
 
         self.logger.debug("Creating instance of the OSC server")
         #Create an instance of the OSC server passing in a reference to the GUI
-        self.osc = OSC_Server(self.ip_address, self.listen_port)
+        self.osc = OSC_Server(self.client_ip_address, self.client_listen_port)
         self.__start_osc()
 
         #Request display template from server - only updates if it has changed
@@ -493,7 +427,11 @@ class Window:
         self.logger.info("Setup Done - Let's go!")
 
     def __start_daemon_threads(self):
-        threading.Thread(target=self.__server_heartbeat, daemon=True).start()
+        self.server_heartbeat_thread = threading.Thread(target=self.__server_heartbeat, daemon=True)
+        self.server_heartbeat_thread.start()
+
+    def __stop_daemon_threads(self):
+        self.reloading_display = True
 
     def __start_osc(self):
         #Start the server in a seperate thread
@@ -510,14 +448,14 @@ class Window:
         #Global Handlers
         self.osc.map_osc_handler('/signal-lights/*', self.signal_light_handler)
         self.osc.map_osc_handler("/*/ticker", self.ticker_handler)
-        #self.osc.map_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
-        #self.osc.map_osc_handler('/client/control/frames', self.show_frame_handler)
+        self.osc.map_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
+        self.osc.map_osc_handler('/client/control/frames', self.show_frame_handler)
 
     def __unmap_gui_handlers(self):
         #Global Handlers
         self.osc.unmap_osc_handler('/signal-lights/*', self.signal_light_handler)
         self.osc.unmap_osc_handler("/*/ticker", self.ticker_handler)
-        #self.osc.unmap_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
+        self.osc.unmap_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
         #self.osc.unmap_osc_handler('/client/control/frames', self.show_frame_handler)
 
     #Reads ip settings from the settings file and applies them
@@ -529,9 +467,9 @@ class Window:
 
         #Set ip's if settings file exists - otherwise defaults are used
         if settings_dict != False:
-            self.ip_address = settings_dict["client_ip"]
+            self.client_ip_address = settings_dict["client_ip"]
             self.server_ip_address = settings_dict["server_ip"]
-            self.logger.info(f"Ip Settings set, Client IP:{self.ip_address}, Server IP:{self.server_ip_address}")
+            self.logger.info(f"Ip Settings set, Client IP:{self.client_ip_address}, Server IP:{self.server_ip_address}")
 
         else:
             self.logger.info("Settings file corrupt or missing!")
@@ -591,7 +529,7 @@ class Window:
             #Build the Message and send
             command = "/config/device/get"
             arguments = {
-                        "client_ip" : self.ip_address
+                        "client_ip" : self.client_ip_address
                         }
             data = None
 
@@ -604,15 +542,14 @@ class Window:
             response_dict = json.loads(response)
             arguments = response_dict["arguments"]
 
-            device_name = arguments["device_name"]
-            device_ip = arguments["device_ip"]
-            device_location = arguments["device_location"]
-            message_group = arguments["message_group"]
-            trigger_group = arguments["trigger_group"]
-            display_template = arguments["display_template"]
+            #Store the recieved information locally
+            self.device_information_dict = arguments
 
+            device_information_widget : Identify_Slate = self.widget_dict[-4]
+            device_information_widget.set_information(self.device_information_dict) 
 
             #Set the location field on the display
+            device_location = arguments["device_location"]
             top_banner : Logo_Date_Location_Top_Banner = self.widget_dict[-1]
             top_banner.set_location(device_location)
 
@@ -637,7 +574,7 @@ class Window:
 
             #Request a new display template from the server
             tcp_client = TCP_Client()
-            message = tcp_client.build_tcp_message("/config/display_template/get", {"timestamp":timestamp, "client_ip":self.ip_address})
+            message = tcp_client.build_tcp_message("/config/display_template/get", {"timestamp":timestamp, "client_ip":self.client_ip_address})
             response_bytes = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
             response = tcp_client.decode_data(response_bytes)
             self.logger.debug(f"Data recieved from server: {response}")
@@ -664,13 +601,13 @@ class Window:
 
     def __server_heartbeat(self):
         sleep(3)
-        while self.running == True:
+        while self.reloading_display == False:
             #Default wait time until a connection is made
             self.wait_time = 5
             try:
                 #Send a heartbeat message to the server
                 tcp_client = TCP_Client()
-                message = tcp_client.build_tcp_message("heartbeat", {"client_ip":self.ip_address}, None)
+                message = tcp_client.build_tcp_message("heartbeat", {"client_ip":self.client_ip_address}, None)
                 response = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
                 
                 #Read the response
@@ -740,6 +677,59 @@ class Window:
             self.logger.debug("Ticker Off")
             ticker_widget.ticker_off()
 
+    def reload_display_handler(self, address, *args):
+        self.logger.info("***************Reloading Display***************")
+        self.show_frame(0)
+
+        self.__unmap_gui_handlers()
+        self.logger.debug("Unmapped OSC Handlers")
+
+        self.__stop_daemon_threads()
+        self.logger.debug("Stopped Background Threads")
+        
+        self.logger.info("Rendering new display...")
+
+        #Request display template from server - only updates if it has changed
+        self.__request_display_template()
+
+        #Create a copy of the current blit list used when clearing the current one
+        copy_of_blit_dict = {}
+        for display_section_id in self.blit_dict:
+            copy_of_blit_dict[display_section_id] = self.blit_dict[display_section_id]
+
+        #Clear the current blit list except for the surface with id -3 this is the fullscreen slate
+        for display_section_id in copy_of_blit_dict:
+            if display_section_id != -3:
+                self.blit_dict.pop(display_section_id)
+
+        #Pause to show logo
+        time.sleep(4)
+
+        #Render RDS Display based on display template
+        self.__render_diplay_template_file()
+
+        #Request config info to populate identify frame widgets
+        self.__request_device_config()
+
+        #Start GUI background Threads
+        self.logger.info("Starting GUI Background Threads")
+        self.__start_daemon_threads()
+
+        #Map GUI handlers to allow GUI to update on recieved command
+        self.__map_gui_handlers()
+
+        #Raise the RDS frame into view
+        self.show_frame(2)
+
+        self.logger.info("Reloaded Display Successfully")
+
+    def show_frame_handler(self, address, *args):
+        self.logger.info(f"***************Raising Frame***************")
+        if args[0] == "identify":
+            self.show_frame(1)
+        elif args[0] == "OATIS":
+            self.show_frame(2)
+
     def alarm_indicator_on(self):
         clock_widget = self.widget_dict[0]
         clock_widget.alarm_indicator_flash_enable()
@@ -747,3 +737,31 @@ class Window:
     def alarm_indicator_off(self):
         clock_widget = self.widget_dict[0]
         clock_widget.alarm_indicator_flash_disable()
+
+    #Raises a stacked frame to the top visible layer
+    def show_frame(self, frame_number):
+        """Raise a display surface into view, Frame 0: Logo Frame, Frame 1:Device Information, Frame 2: OATIS"""
+        #Logo Slate
+        if frame_number == 0:
+            self.logger.info("Raising Logo Screen")
+            logo_slate_widget : Logo_Slate = self.widget_dict[-3]
+            logo_slate_widget.make_visible()
+            identify_slate_widget : Identify_Slate = self.widget_dict[-4]
+            identify_slate_widget.hide()
+        #Device Information
+        elif frame_number == 1:
+            self.logger.info("Raising Information Screen")
+            logo_slate_widget : Logo_Slate = self.widget_dict[-3]
+            logo_slate_widget.hide()
+            identify_slate_widget : Identify_Slate = self.widget_dict[-4]
+            identify_slate_widget.make_visible()
+        #OATIS
+        elif frame_number == 2:
+            self.logger.info("Raising OATIS Screen")
+            logo_slate_widget : Logo_Slate = self.widget_dict[-3]
+            logo_slate_widget.hide()
+            identify_slate_widget : Identify_Slate = self.widget_dict[-4]
+            identify_slate_widget.hide()
+
+        
+        

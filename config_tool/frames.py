@@ -497,7 +497,7 @@ class Device_Config(BaseFrame):
             if state == True:
                 frame = "identify"
             else:
-                frame = "rds"
+                frame = "OATIS"
 
             #Send the raise frame command to the server
             self.tcp_client = TCP_Client()

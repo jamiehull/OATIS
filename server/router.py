@@ -140,7 +140,7 @@ class Router:
                 device_ip = self.db.get_1column_data("device_ip", "devices", "device_id", device_id)[0]
                 self.logger.debug(f"IP address of client to raise frame: {device_ip}")
 
-                self.forward_tcp_osc_message([device_ip], "/client/control/frames", frame)
+                self.forward_osc_message([device_ip], "/client/control/frames", frame)
 
                 response = build_tcp_response_message("/control/client/raise_frame", {"status" : "OK"}, None)
 
@@ -152,7 +152,7 @@ class Router:
                 device_ip = self.db.get_1column_data("device_ip", "devices", "device_id", device_id)[0]
                 self.logger.debug(f"IP address of client to reload display: {device_ip}")
 
-                self.forward_tcp_osc_message([device_ip], "/client/control/reload_display_template", None)
+                self.forward_osc_message([device_ip], "/client/control/reload_display_template", None)
 
                 response = build_tcp_response_message("/control/client/reload_display_template", {"status" : "OK"}, None)
                 

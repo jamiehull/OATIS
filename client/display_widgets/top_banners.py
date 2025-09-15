@@ -1,11 +1,12 @@
+from client.display_widgets.widget import Widget
 import pygame
 from pygame.locals import *
-import pygame.gfxdraw
 import os
 from time import strftime
 
-class Ticker_Banner:
+class Ticker_Banner(Widget):
     def __init__(self, parent_surface):
+        super().__init__()
 
         #Store reference to the surface
         self.display_surface :pygame.Surface = parent_surface
@@ -32,9 +33,6 @@ class Ticker_Banner:
         self.text_size = int(self.display_height*0.8)
         self.font = pygame.font.SysFont('arial', self.text_size)
 
-        #Create the background
-        #self.display_surface.fill(self.bg_colour)
-
         #Ticker Position Variables
         self.x_start = self.display_width
         self.x_end = 0
@@ -44,9 +42,8 @@ class Ticker_Banner:
         #Variable to turn ticker on and off
         self.ticker_enabled = False
 
-    #Update the Display
-    def render(self):
-        self.__scroll_ticker()
+        #Add to render
+        self.add_function_to_render(self.__scroll_ticker)
         
     def set_ticker_text(self, text):
 
@@ -88,7 +85,6 @@ class Ticker_Banner:
         else:
             self.bg_colour = (0,0,0) #Black
             
-
     def ticker_on(self):
         self.ticker_enabled = True
 
@@ -104,7 +100,6 @@ class Logo_Date_Location_Top_Banner:
         #Display Colours
         self.bg_colour = (0,0,0) #Black
         self.text_colour = (255, 255, 255) #White
-
 
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
@@ -179,7 +174,8 @@ class Logo_Date_Location_Top_Banner:
         
 
     def render_date(self):
-        self.date_str = strftime('%a %d %B %Y')
+        self.date_str = strftime('%a %d %b %Y')
+        #self.year_str = strftime('%Y')
 
         # create a text surface object and a rectangular object for the text surface object
         self.date_text = self.font.render(self.date_str, True, self.text_colour, self.bg_colour)

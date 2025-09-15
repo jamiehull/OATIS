@@ -310,7 +310,7 @@ class Traditional_Clock:
         """Turns Alarm indicator Flash on"""
         self.alarm_indicator_flashing_state = True
 
-    def alarm_indicator_indicator_flash_disable(self):
+    def alarm_indicator_flash_disable(self):
         """Turns Alarm indicator Flash off"""
         self.alarm_indicator_flashing_state = False
         self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
