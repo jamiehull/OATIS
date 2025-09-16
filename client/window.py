@@ -62,6 +62,7 @@ class Window:
         self.widget_dict = {}
 
         #Dictionary of surfaces to blit to the display
+        self.blit_dict_lock = threading.Lock()
         self.blit_dict = {}
 
         #Create the Main Display Window Surface
@@ -131,25 +132,26 @@ class Window:
     
     #Update the Display
     def on_render(self):
-        #Fill the screen with a color to wipe away anything from last frame
-        self.display_surface.fill(self.bg_colour)
+        with self.blit_dict_lock:
+            #Fill the screen with a color to wipe away anything from last frame
+            self.display_surface.fill(self.bg_colour)
 
-        #Render each display surface onto the main surface
-        for display_section_id in self.blit_dict:
-            display_section : Display_Section = self.blit_dict[display_section_id]
-            self.display_surface.blit(display_section.surface, display_section.top_left_screen_coord)
+            #Render each display surface onto the main surface
+            for display_section_id in self.blit_dict:
+                display_section : Display_Section = self.blit_dict[display_section_id]
+                self.display_surface.blit(display_section.surface, display_section.top_left_screen_coord)
 
-        #Render the widgets on each display surface
-        for display_section_id in self.widget_dict:
-            widget : Widget = self.widget_dict[display_section_id]
-            widget.render()
+            #Render the widgets on each display surface
+            for display_section_id in self.widget_dict:
+                widget : Widget = self.widget_dict[display_section_id]
+                widget.render()
 
 
-        #flip() the display to put your work on screen
-        pygame.display.flip()
+            #flip() the display to put your work on screen
+            pygame.display.flip()
 
-        #limits FPS
-        self.clock.tick(50)
+            #limits FPS
+            self.clock.tick(50)
 
     #Quits Pygame Modules
     def on_cleanup(self):
@@ -692,36 +694,36 @@ class Window:
         #Request display template from server - only updates if it has changed
         self.__request_display_template()
 
-        #Create a copy of the current blit list used when clearing the current one
-        copy_of_blit_dict = {}
-        for display_section_id in self.blit_dict:
-            copy_of_blit_dict[display_section_id] = self.blit_dict[display_section_id]
+        time.sleep(5)
 
-        #Clear the current blit list except for the surface with id -3 this is the fullscreen slate
-        for display_section_id in copy_of_blit_dict:
-            if display_section_id != -3:
+        with self.blit_dict_lock:
+
+            #Create a copy of the current blit list used when clearing the current one
+            copy_of_blit_dict = {}
+            for display_section_id in self.blit_dict:
+                copy_of_blit_dict[display_section_id] = self.blit_dict[display_section_id]
+
+            #Clear the current blit list except for the surface with id -3 this is the fullscreen slate
+            for display_section_id in copy_of_blit_dict:
                 self.blit_dict.pop(display_section_id)
 
-        #Pause to show logo
-        time.sleep(4)
+            #Render RDS Display based on display template
+            self.__render_diplay_template_file()
 
-        #Render RDS Display based on display template
-        self.__render_diplay_template_file()
+            #Request config info to populate identify frame widgets
+            self.__request_device_config()
 
-        #Request config info to populate identify frame widgets
-        self.__request_device_config()
+            #Start GUI background Threads
+            self.logger.info("Starting GUI Background Threads")
+            self.__start_daemon_threads()
 
-        #Start GUI background Threads
-        self.logger.info("Starting GUI Background Threads")
-        self.__start_daemon_threads()
+            #Map GUI handlers to allow GUI to update on recieved command
+            self.__map_gui_handlers()
 
-        #Map GUI handlers to allow GUI to update on recieved command
-        self.__map_gui_handlers()
+            #Raise the RDS frame into view
+            self.show_frame(2)
 
-        #Raise the RDS frame into view
-        self.show_frame(2)
-
-        self.logger.info("Reloaded Display Successfully")
+            self.logger.info("Reloaded Display Successfully")
 
     def show_frame_handler(self, address, *args):
         self.logger.info(f"***************Raising Frame***************")
@@ -748,6 +750,8 @@ class Window:
             logo_slate_widget.make_visible()
             identify_slate_widget : Identify_Slate = self.widget_dict[-4]
             identify_slate_widget.hide()
+            self.logger.debug(f"Logo Slate State:{logo_slate_widget.active}")
+            self.logger.debug(f"Identify Slate State:{identify_slate_widget.active}")
         #Device Information
         elif frame_number == 1:
             self.logger.info("Raising Information Screen")
@@ -755,6 +759,8 @@ class Window:
             logo_slate_widget.hide()
             identify_slate_widget : Identify_Slate = self.widget_dict[-4]
             identify_slate_widget.make_visible()
+            self.logger.debug(f"Logo Slate State:{logo_slate_widget.active}")
+            self.logger.debug(f"Identify Slate State:{identify_slate_widget.active}")
         #OATIS
         elif frame_number == 2:
             self.logger.info("Raising OATIS Screen")
@@ -762,6 +768,10 @@ class Window:
             logo_slate_widget.hide()
             identify_slate_widget : Identify_Slate = self.widget_dict[-4]
             identify_slate_widget.hide()
+            self.logger.debug(f"Logo Slate State:{logo_slate_widget.active}")
+            self.logger.debug(f"Identify Slate State:{identify_slate_widget.active}")
+
+        
 
         
         
