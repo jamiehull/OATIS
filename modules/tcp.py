@@ -1,5 +1,4 @@
 import logging
-#from client.rds_display import *
 import socket
 import struct
 import json

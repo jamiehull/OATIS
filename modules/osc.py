@@ -80,7 +80,7 @@ class OSC_Client:
         #Setup Logging
         self.logger = logging.getLogger(__name__)
 
-        #IP / Port of RDS Server - Default parameters for testing
+        #IP / Port of OATIS Server - Default parameters for testing
         self.remote_host_ip_address = ip
         self.remote_host_port = port
 

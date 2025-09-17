@@ -44,7 +44,7 @@ class Message_Console:
 
         #Set Window title and size.
         self.logger.debug("Setting self.root window attributes")
-        self.root.title("RDS Message Console")
+        self.root.title("OATIS Message Console")
         self.root.attributes("-fullscreen", True)
 
         #StringVars
@@ -678,7 +678,7 @@ class Settings(ctk.CTkFrame):
         #Setup Logging
         self.logger = logging.getLogger(__name__)
 
-        #RDS_Display Instance - allows gui interaction to raise the RDS frame
+        #Display Instance - allows gui interaction to raise message console frame
         self.message_console_display : Message_Console = message_console_display
 
         #Variables

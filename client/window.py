@@ -707,7 +707,7 @@ class Window:
             for display_section_id in copy_of_blit_dict:
                 self.blit_dict.pop(display_section_id)
 
-            #Render RDS Display based on display template
+            #Render OATIS Display based on display template
             self.__render_diplay_template_file()
 
             #Request config info to populate identify frame widgets
@@ -720,7 +720,7 @@ class Window:
             #Map GUI handlers to allow GUI to update on recieved command
             self.__map_gui_handlers()
 
-            #Raise the RDS frame into view
+            #Raise the OATIS frame into view
             self.show_frame(2)
 
             self.logger.info("Reloaded Display Successfully")
