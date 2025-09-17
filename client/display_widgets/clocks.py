@@ -4,9 +4,58 @@ import math
 from time import strftime
 from datetime import datetime
 import pygame.gfxdraw
+from client.display_widgets.widget import Widget
 
-class Traditional_Clock:
+class Clock(Widget):
+    """Base Clock class containing common functions and variables."""
+    def __init__(self):
+        super().__init__()
+
+        #Colours
+        self.alarm_indicator_off_colour = (129, 129, 129) #Grey
+        self.alarm_indicator_on_colour = (255, 0, 0) #Red
+        self.alarm_indicator_current_colour = (129, 129, 129)
+
+        #Alarm Indicator Flash Frequency
+        self.flash_period = 400 #Time between flashes in ms
+        self.alarm_indicator_flashing_state = False #Controls whetehr indicator is flashing
+        self.change_time = 0 #Time for next flash in ms
+
+
+    def alarm_indicator_flash(self):
+        """Flashes an indicator given it's index, starting at 0, top down."""
+        if self.alarm_indicator_flashing_state == True:
+            #Get the current time in ms
+            current_time = pygame.time.get_ticks()
+
+            #If the current time is greater than the next change time and the indicator is in the flashing list
+            #flash the indicator
+            if current_time >= self.change_time:
+                #Indicator on
+                if self.alarm_indicator_current_colour == self.alarm_indicator_off_colour:
+                    self.alarm_indicator_current_colour = self.alarm_indicator_on_colour
+
+                #Indicator Off
+                else:
+                    self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
+
+                self.change_time = current_time + self.flash_period
+        
+    def alarm_indicator_flash_enable(self):
+        """Turns Alarm indicator Flash on"""
+        self.alarm_indicator_flashing_state = True
+
+    def alarm_indicator_flash_disable(self):
+        """Turns Alarm indicator Flash off"""
+        self.alarm_indicator_flashing_state = False
+        self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
+
+
+
+
+class Traditional_Clock(Clock):
     def __init__(self, parent_surface):
+        super().__init__()
 
         #Store reference to the surface
         self.display_surface :pygame.Surface = parent_surface
@@ -19,9 +68,7 @@ class Traditional_Clock:
         self.minutes_colour = (0, 255, 60) #Green
         self.seconds_colour = (255, 234, 0) #Yellow
         self.center_cover_colour = (255, 0, 0) #Red
-        self.alarm_indicator_off_colour = (129, 129, 129) #Grey
-        self.alarm_indicator_on_colour = (255, 0, 0) #Red
-        self.alarm_indicator_current_colour = (129, 129, 129)
+
 
         #Angles Between Indicators
         self.seconds_angle = 6 #360 degrees / 60 = 6
@@ -59,25 +106,14 @@ class Traditional_Clock:
         self.label_text_size = int(smallest_dimension*0.07)
         self.font = pygame.font.SysFont('arial', self.label_text_size)
 
-        #Alarm Indicator Flash Frequency
-        self.flash_period = 400 #Time between flashes in ms
-        self.alarm_indicator_flashing_state = False #Controls whetehr indicator is flashing
-        self.change_time = 0 #Time for next flash in ms
-
-    #Update the Display
-    def render(self):
-        #Fill the screen with a color to wipe away anything from last frame
-        self.display_surface.fill(self.bg_colour)
-
         #Draw the clock
-        self.draw_face()
-        self.draw_labels()
-        self.draw_bg()
-        self.draw_alarm_indicator()
-        self.update_analogue_time()
-        self.draw_center_cover()
-        self.__flash()
-        
+        self.add_function_to_render(self.draw_face)
+        self.add_function_to_render(self.draw_labels)
+        self.add_function_to_render(self.draw_bg)
+        self.add_function_to_render(self.draw_alarm_indicator)
+        self.add_function_to_render(self.update_analogue_time)
+        self.add_function_to_render(self.draw_center_cover)
+        self.add_function_to_render(self.alarm_indicator_flash)
  
 #----------------------------------Module Specific Code---------------------------------
 
@@ -213,6 +249,9 @@ class Traditional_Clock:
 
     def draw_face(self):
         """Draws the clock face circle background"""
+        #Fill the screen with a color to wipe away anything from last frame
+        self.display_surface.fill(self.bg_colour)
+
         #Calculate the radius of the circle with padding
         radius = int(self.face_radius)
 
@@ -287,36 +326,9 @@ class Traditional_Clock:
         self.draw_minutes_hand(time_minutes, time_seconds)
         self.draw_hours_hand(time_hours, time_minutes)
 
-    def __flash(self):
-        """Flashes the alarm indicator"""
-        if self.alarm_indicator_flashing_state == True:
-            #Get the current time in ms
-            current_time = pygame.time.get_ticks()
-
-            #If the current time is greater than the next change time and the indicator is in the flashing list
-            #flash the indicator
-            if current_time >= self.change_time:
-                #Indicator on
-                if self.alarm_indicator_current_colour == self.alarm_indicator_off_colour:
-                    self.alarm_indicator_current_colour = self.alarm_indicator_on_colour
-
-                #Indicator Off
-                else:
-                    self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
-
-                self.change_time = current_time + self.flash_period
-        
-    def alarm_indicator_flash_enable(self):
-        """Turns Alarm indicator Flash on"""
-        self.alarm_indicator_flashing_state = True
-
-    def alarm_indicator_flash_disable(self):
-        """Turns Alarm indicator Flash off"""
-        self.alarm_indicator_flashing_state = False
-        self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
-
-class Studio_Clock:
+class Studio_Clock(Clock):
     def __init__(self, parent_surface):
+        super().__init__()
 
         #Store reference to the surface
         self.display_surface = parent_surface
@@ -326,11 +338,6 @@ class Studio_Clock:
         self.seconds_colour = (255, 0, 0) #Red
         self.hour_on_colour = (255, 0, 0) #Red
         self.hour_off_colour = (129, 129, 129) #Grey
-        self.indicator_ok_colour = "green"
-        self.indicator_error_colour = "orange"
-        self.alarm_indicator_off_colour = (129, 129, 129) #Grey
-        self.alarm_indicator_on_colour = (255, 0, 0) #Red
-        self.alarm_indicator_current_colour = (129, 129, 129)
 
         #Angles Between Indicators
         self.seconds_angle = 6 #360 degrees / 60 = 6
@@ -373,22 +380,12 @@ class Studio_Clock:
 
         self.font = pygame.font.SysFont('arial', self.digital_clock_text_size)
 
-        #Alarm Indicator Flash Frequency
-        self.flash_period = 400 #Time between flashes in ms
-        self.alarm_indicator_flashing_state = False #Controls whetehr indicator is flashing
-        self.change_time = 0 #Time for next flash in ms
-    
-    #Update the Display
-    def render(self):
-        #Fill the screen with a color to wipe away anything from last frame
-        self.display_surface.fill(self.bg_colour)
-
         #Draw the clock
-        self.draw_hours()
-        self.draw_alarm_indicator()
-        self.update_analogue_time()
-        self.update_digital_time()
-        self.__flash()
+        self.add_function_to_render(self.draw_hours)
+        self.add_function_to_render(self.draw_alarm_indicator)
+        self.add_function_to_render(self.update_analogue_time)
+        self.add_function_to_render(self.update_digital_time)
+        self.add_function_to_render(self.alarm_indicator_flash)
  
 #----------------------------------Module Specific Code---------------------------------
 
@@ -404,6 +401,9 @@ class Studio_Clock:
 
     #Draw the Hour indicators
     def draw_hours(self):
+        #Fill the screen with a color to wipe away anything from last frame
+        self.display_surface.fill(self.bg_colour)
+
         for i in range(0,13):
             #Calculate the current angle the circle will be drawn at from display center
             current_angle = i*self.hours_angle
@@ -469,34 +469,6 @@ class Studio_Clock:
         #Copy the text surface object to the display surface object at the center coordinate.
         self.display_surface.blit(text_hr_min, text_rect_hr_min)
         self.display_surface.blit(text_sec, text_rect_sec)
-
-    def __flash(self):
-        """Flashes an indicator given it's index, starting at 0, top down."""
-        if self.alarm_indicator_flashing_state == True:
-            #Get the current time in ms
-            current_time = pygame.time.get_ticks()
-
-            #If the current time is greater than the next change time and the indicator is in the flashing list
-            #flash the indicator
-            if current_time >= self.change_time:
-                #Indicator on
-                if self.alarm_indicator_current_colour == self.alarm_indicator_off_colour:
-                    self.alarm_indicator_current_colour = self.alarm_indicator_on_colour
-
-                #Indicator Off
-                else:
-                    self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
-
-                self.change_time = current_time + self.flash_period
-        
-    def alarm_indicator_flash_enable(self):
-        """Turns Alarm indicator Flash on"""
-        self.alarm_indicator_flashing_state = True
-
-    def alarm_indicator_flash_disable(self):
-        """Turns Alarm indicator Flash off"""
-        self.alarm_indicator_flashing_state = False
-        self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
 
 
 

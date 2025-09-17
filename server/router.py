@@ -109,7 +109,7 @@ class Router:
     #--------------------------------INTERNAL-APP-TCP-HANDLERS---------------------------------------------------
 
     #Handles incoming tcp requests and returns a response - must return a bytes object
-    #All commands below are for network comms between RDS applications
+    #All commands below are for network comms between OATIS applications
     def handle_tcp_message(self, message:str) -> bytes:
         try:
             #Convert the recieved JSON to a dict

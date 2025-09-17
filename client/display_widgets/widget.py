@@ -1,6 +1,7 @@
 #Widget Superclass
 
 class Widget:
+    """Base Widget class containing functions common to all Widgets."""
     def __init__(self):
 
         #List of functions to call on render

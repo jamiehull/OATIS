@@ -1,9 +1,11 @@
 import pygame
 from pygame.locals import *
+from client.display_widgets.widget import Widget
 
-class Indicator_Lamps_Vertical:
+class Indicator_Lamps_Vertical(Widget):
     """Creates a single column of indicator lamps."""
     def __init__(self, parent_surface, number_of_indicators:int, indicator_label_list:list, indicator_on_rgb_colour_list:list, indicator_flash_list:list):
+        super().__init__()
         #Label Variables
         self.number_of_indicators = number_of_indicators
         self.indicator_label_list = indicator_label_list
@@ -46,6 +48,9 @@ class Indicator_Lamps_Vertical:
         #Calculates teh sizes of each indicators text label so it fits in the indicator and sotres the font object in a list
         self.__calculate_text_sizes()
 
+        self.add_function_to_render(self.__flash)
+        self.add_function_to_render(self.draw_indicators)
+
     def __calculate_text_sizes(self):
         """Make a font object for each label and resize the text to fit in the label, storing the font object in a list."""
         for text_string in self.indicator_label_list:
@@ -67,12 +72,6 @@ class Indicator_Lamps_Vertical:
                 break
 
         return label_text
-        
-    #Update the Display
-    def render(self):
-        self.__flash()
-        self.draw_indicators()
-        
         
     def draw_indicators(self):
         #Fill the screen with a color to wipe away anything from last frame

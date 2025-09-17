@@ -1,9 +1,11 @@
 import pygame
 from pygame.locals import *
+from client.display_widgets.widget import Widget
 
-class Title_Data:
+class Title_Data(Widget):
     """Creates a single column containing a title and a data field with two text rows below."""
     def __init__(self, parent_surface, field_title:str, bg_colour:tuple):
+        super.__init__()
         #Label Variables
         self.field_title = field_title
         self.resized_title : pygame.Surface
@@ -36,9 +38,11 @@ class Title_Data:
         self.title_text_size = int(self.outline_height * 0.2)
         self.data_text_size = int(self.title_text_size * 0.75)
 
-
         #Calculates the sizes of each indicators text label so it fits in the indicator and sotres the font object in a list
         self.__calculate_text_sizes()
+
+        #Render
+        self.add_function_to_render(self.draw_title_data_fields)
 
     def __calculate_text_sizes(self):
         """Make a font object for each label and resize the text to fit in the label, storing the font object in a list."""
@@ -61,10 +65,6 @@ class Title_Data:
 
         return label_text
         
-    #Update the Display
-    def render(self):
-        self.draw_title_data_fields()
-
     def draw_title_data_fields(self):
         #Fill the screen with a color to wipe away anything from last frame
         self.display_surface.fill(self.bg_colour)
