@@ -45,7 +45,7 @@ class Router:
                 self.logger.debug(f"OSC Address to send to Client:{client_osc}")
 
                 #Forward OSC message to clients
-                self.forward_tcp_osc_message(device_list, client_osc, data)
+                self.forward_osc_message(device_list, client_osc, data)
 
             else:
                 self.logger.debug(f"Invalid OSC Address recieved: {osc_address}")
