@@ -15,7 +15,6 @@ def get_machine_ip() -> list:
         try:
             interface_addresses = netifaces.ifaddresses(interface)[netifaces.AF_INET][0]
             interface_ip = interface_addresses['addr']
-            print(interface_ip)
             ip_list.append(interface_ip)
 
         except:
