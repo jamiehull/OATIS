@@ -1,34 +1,33 @@
-# Radio Display System
+# OATIS - On Air Tally Indicator System
 
 ## Overview
 
-Radio Display System is an indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows.
+OATIS is an indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows as it has not currently been tested (I don't own a Windows PC...).
 
 Designed to operate in a server-client model, multiple displays can be centrally managed using a lightweight server application and configuration tool.
 
-![image](https://github.com/user-attachments/assets/7f37f173-b50b-4ce6-8460-43242f7f6d20)
+<img width="1280" height="799" alt="Screenshot 2025-09-17 at 06 47 19" src="https://github.com/user-attachments/assets/16a7c8ef-395b-41d6-92a3-cf1fbccc62e9" />
 
 ## Features
 Customizable displays:
 - Configure the number of indicators to display(currently up to 6), their colour and text.
 - Customizable logos
-- Choose between Analogue and Digital Clocks
+- Choose between Analogue and Studio Style Clocks
 - Choice of a variety of display layouts.
   
 Messaging:
-- Client displays can be used to show short messages by way of a scrolling ticker at the top of the screen
+- Client displays can be used to show short messages by way of a scrolling ticker at the top of the screen.
+- The background colour of each message can be chosen by the user.
+- Clients are segregated into logical Messaging groups for sending messages to a group of clients.
+- Message console application for sending messages to clients.
   
 Physical and Network triggers:
-- Support for physical GPI's usning the Arduino Uno R3
+- Support for physical GPI's usning the Arduino Uno R3 - (Arduino Mega support to be added in version 2)
 - Support for network triggers using the OSC Protocol
   
 Remote management of Display Devices:
 - Device settings can be changed remotley using the configuration tool
 - Display customizations can be sent to the device for rendering
-
-
-
-
 
 ## Terminology
 
@@ -39,6 +38,8 @@ Display Template - A template used to render a client display with the correct c
 Devices - A client display device.
 
 # Setup
+
+If you are using Physical GPI's the Arduino needs to be flashed with the Firmata code to enable communication via serial with OATIS. See below for steps how to do this.
 
 ## Microcontroller Setup 
 
@@ -58,9 +59,9 @@ Open Arduino IDE and navigate to File > Examples > FirmataExpress > FirmataExpre
 
 ![Screenshot 2025-02-22 at 15 57 19](https://github.com/user-attachments/assets/1972e753-0c02-4332-9f9f-34424e9a43ed)
 
-Upload the Sketch to your Board, your now ready to use the microcontroller with RDS.
+Upload the Sketch to your Board, your now ready to use the microcontroller with OATIS.
 
-## Server IP Address
+## Set Server IP Address
 
 Launch the Config tool, navigate to the Server Config tab.
 Select IP Settings.
@@ -80,7 +81,7 @@ Hit Add Controller.
 Enter a name for the controller.
 
 If the controller is running on the same machine as the server - select local\
-If the controller is running on another machine - select remote (Please note remote controllers are not yet implemented so will not do anything at the moment)
+If the controller is running on another machine - select remote (Not yet implemented - Will be in version 2)
 
 ![image](https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f)
 
@@ -101,8 +102,6 @@ Once done, hit save.
 Trigger Types:
 - Controller: A Physical GPI on a microcontroller
 - Network: An inbound OSC Message
-
-
 
 # Server API - For Interaction by external devices and software - OSC - UDP / TCP Port 1337
 
