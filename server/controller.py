@@ -117,10 +117,10 @@ class Controller:
     async def register_input_callback(self, pin):
         self.logger.debug("Registering Pin Callbacks")
         # set the pin mode and assign a callback
-        await self.board.set_pin_mode_digital_input_pullup(pin, callback=self.the_callback)
+        await self.board.set_pin_mode_digital_input_pullup(pin, callback=self.pin_state_change_callback)
 
 
-    async def the_callback(self, data):
+    async def pin_state_change_callback(self, data):
         #data: [pin, current reported value, pin_mode, timestamp]
 
         #extract the pin and state information from the data recieved from the controller

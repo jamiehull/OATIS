@@ -1,5 +1,4 @@
 from client.window import *
-from client.settings import *
 from modules.common import *
 import logging
 
@@ -39,24 +38,17 @@ class Launcher:
     def ip_config(self):
         """Creates the settings file."""
         #Get a list of IP's associated wit this machines network interfaces
-        interface_ip_list = get_machine_ip()
-        interface_list_length = len(interface_ip_list)
+        self.interface_ip_list = get_machine_ip()
+        self.interface_list_length = len(self.interface_ip_list)
 
         #Print to terminal
         print(f"Available Interface Ip Addresses:")
         i=0
-        for ip in interface_ip_list:
+        for ip in self.interface_ip_list:
             print(f"{i} - {ip}")
             i+=1
 
-        #Ask user to select an IP
-        print("Please select an interface ip by inputting the number associated with it:")
-        selection = input()
-        selection_int = int(selection)
-
-        #Set client IP based on selection
-        if selection_int in range (0, interface_list_length):
-            self.client_ip = interface_ip_list[selection_int]
+        self.get_client_ip_input()
 
         #Ask user for server ip, validate and set
         print("Please enter a server IP:")
@@ -73,6 +65,27 @@ class Launcher:
 
         #Write to settings file
         write_dict_to_file(self.settings_dict, self.settings_path)
+
+    def get_client_ip_input(self):
+        self.valid = False
+        while self.valid == False:
+            #Ask user to select an IP
+            print("Please select an interface ip by inputting the number associated with it:")
+            selection = input()
+            try:
+                selection_int = int(selection)
+                #Set client IP based on selection
+                if selection_int in range (0, self.interface_list_length):
+                    self.client_ip = self.interface_ip_list[selection_int]
+                    self.valid = True
+                else:
+                    print("IP address invalid, please select again:")
+            except:
+                print("IP address invalid, please select again:")
+
+                
+                    
+
 
     def start_app(self):
         #Create an instance of the GUI

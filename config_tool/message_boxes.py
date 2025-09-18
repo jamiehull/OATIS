@@ -3,10 +3,6 @@ import logging
 
 class Message_Boxes:
 
-    #Setup Logging
-    
-
-
     def delete_warning(exception):
         messagebox.showwarning("Warning", f"Cannot delete this item as it is in use. \nTechnical info:{exception}")
     

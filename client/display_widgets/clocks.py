@@ -21,7 +21,6 @@ class Clock(Widget):
         self.alarm_indicator_flashing_state = False #Controls whetehr indicator is flashing
         self.change_time = 0 #Time for next flash in ms
 
-
     def alarm_indicator_flash(self):
         """Flashes an indicator given it's index, starting at 0, top down."""
         if self.alarm_indicator_flashing_state == True:
@@ -50,9 +49,6 @@ class Clock(Widget):
         self.alarm_indicator_flashing_state = False
         self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
 
-
-
-
 class Traditional_Clock(Clock):
     def __init__(self, parent_surface):
         super().__init__()
@@ -68,7 +64,6 @@ class Traditional_Clock(Clock):
         self.minutes_colour = (0, 255, 60) #Green
         self.seconds_colour = (255, 234, 0) #Yellow
         self.center_cover_colour = (255, 0, 0) #Red
-
 
         #Angles Between Indicators
         self.seconds_angle = 6 #360 degrees / 60 = 6

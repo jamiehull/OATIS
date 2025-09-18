@@ -17,10 +17,13 @@ class Main_Server:
 
         #Server listen Socket - Defaults
         self.ip = "127.0.0.1"
-        self.osc_port = 1337 #UDP and TCP
+        self.osc_port = 1337 #UDP and TCP Triggering
         self.tcp_port = 1339 #TCP File Transfers Only
         self.settings_path = "server/settings.json"
         self.serial_port_index = 4
+
+        #Read stored ip settings and set them
+        self.__read_and_set_settings()
 
         #Thread List
         self.controller_thread_list = []
@@ -28,9 +31,6 @@ class Main_Server:
         #Create an instance of the database connection and router
         self.db = DB() 
         self.router = Router()
-
-        #Read stored ip settings and set them
-        self.__read_and_set_settings()
 
         #Create an instance of the OSC_Server
         self.osc_server = OSC_Server(self.ip, self.osc_port)
@@ -57,8 +57,6 @@ class Main_Server:
 
         #Setup Configured GPIO Controllers
         #Query the database to return configured controllers
-        #At the moment only selecting the first configured controller - For testing
-
         config = self.db.get_current_table_data("controllers")
         self.controller_server_list = []
         self.controller_port_list = []
@@ -78,7 +76,6 @@ class Main_Server:
         #Shows server heartbeat message - keeps main thread alive
         while True:
             self.__show_server_status()
-
 
     def __map_osc_handlers(self):
         self.osc_server.map_osc_handler('/*/signal-lights/*', self.router.handle_signal_light_osc_message)

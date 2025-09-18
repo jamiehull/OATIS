@@ -54,10 +54,12 @@ class Message_Console:
         #Client listen Socket - Defaults
         self.ip_address_var = tk.StringVar()
         self.listen_port = 1338
+        self.default_ip = "127.0.0.1"
 
         #Server listen Socket - Defaults
         self.server_ip_address_var = tk.StringVar()
         self.server_port = 1339
+        self.default_server_ip = "127.0.0.1"
 
         #Add the widgets        
         self.__add_widgets()
@@ -197,6 +199,11 @@ class Message_Console:
             self.settings_frame.set_device_ip(settings_dict["client_ip"])
             self.server_ip_address_var.set(settings_dict["server_ip"])
             self.settings_frame.set_server_ip(settings_dict["server_ip"])
+        else:
+            self.ip_address_var.set(self.default_ip)
+            self.settings_frame.set_device_ip(self.default_ip)
+            self.server_ip_address_var.set(self.default_server_ip)
+            self.settings_frame.set_server_ip(self.default_server_ip)
     
     #Callback used to raise settings frame
     def raise_settings_frame(self, event):
