@@ -16,6 +16,7 @@ from time import sleep
 import json
 from PIL import ImageColor
 import time
+from os import path
 
 #Dataclass to store a display_surface and it's attributes
 @dataclass
@@ -39,6 +40,10 @@ class Window:
         #Server listen Socket - Defaults
         self.server_ip_address = "127.0.0.1"
         self.server_tcp_port = 1339
+
+        #Paths
+        self.display_template_path = path.abspath(path.join(path.dirname(__file__), "data/display_template.json"))
+        self.settings_path = path.abspath(path.join(path.dirname(__file__), "data/settings.json"))
 
         #Device information store
         self.device_information_dict = {}
@@ -354,13 +359,13 @@ class Window:
         #Get the timestamp of the cached display template
         self.logger.debug("******************Rendering Display Template******************")
         try:
-            template_dict = open_json_file("client/data/display_template.json")
+            template_dict = open_json_file(self.display_template_path)
             self.layout : str = template_dict["layout"]
             self.total_indicators : int = template_dict["indicators_displayed"]
             clock_type : str = template_dict["clock_type"]
         except Exception as e:
             self.logger.error(f"Unable to open display template file:{e}")
-            template_dict = open_json_file("client/data/default_display_template.json")
+            template_dict = open_json_file(self.display_template_path)
             self.layout : str = template_dict["layout"]
             self.total_indicators : int = template_dict["indicators_displayed"]
             clock_type : str = template_dict["clock_type"]
@@ -465,7 +470,7 @@ class Window:
         self.logger.info("Setting Ip settings from File")
 
         #Read Settings file
-        settings_dict = open_json_file("client/data/settings.json")
+        settings_dict = open_json_file(self.settings_path)
 
         #Set ip's if settings file exists - otherwise defaults are used
         if settings_dict != False:
@@ -495,7 +500,7 @@ class Window:
             image_id = self.display_template_dict["logo"]
 
             self.logger.debug(f"Writing display template to file.")
-            write_dict_to_file(self.display_template_dict, "client/data/display_template.json")
+            write_dict_to_file(self.display_template_dict, self.display_template_path)
             self.logger.debug(f"Display Template Saved")
             self.__update_logo_file(image_id)
             self.logger.info("JSON Display Template Recieved From Server and stored on device local cache.")
@@ -565,7 +570,7 @@ class Window:
     def __request_display_template(self):
         try:
             #Get the timestamp of the cached display template
-            cached_template_dict = open_json_file("client/data/display_template.json")
+            cached_template_dict = open_json_file(self.display_template_path)
 
             if cached_template_dict != False:
                 #Extract the timestamp from the display_template
