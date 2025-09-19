@@ -34,7 +34,7 @@ Remote management of Display Devices:
 Controllers - Physical GPIO Controllers used for inputs / outputs.\
 Trigger Group - A logical group of OSC Network Triggers and Physical Controller triggers used to change the state of client widgets.\
 Message Group - A logical group of devices messages can be sent to.\
-Display Template - A template used to render a client display with the correct colours, labels and layout.
+Display Template - A template used to render a client display with the correct colours, labels and layout.\
 Devices - A client display device.
 
 # Setup
@@ -63,9 +63,9 @@ Upload the Sketch to your Board, your now ready to use the microcontroller with 
 
 ## Set Server IP Address
 
-Launch the Config tool, navigate to the Server Config tab.
-Select IP Settings.
-Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.
+Launch the Config tool, navigate to the Server Config tab.\
+Select IP Settings.\
+Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
 A loopback IP address will also be shown which can be used for system testing if you want to run the client and server on the same machine.
 
 ![image](https://github.com/user-attachments/assets/87002b37-bc96-4e45-bfc0-b50d218ab5e9)
@@ -74,14 +74,10 @@ Once selected hit save.
 
 ## Adding Microcontrollers
 
-Navigate to the GPIO Config tab.
-
-Hit Add Controller.
-
-Enter a name for the controller.
-
+Navigate to the GPIO Config tab.\
+Hit Add Controller.\
+Enter a name for the controller.\
 If the controller is running on the same machine as the server - select local\
-
 If the controller is running on another machine - select remote (Not yet implemented - Will be in version 2)
 
 ![image](https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f)
@@ -90,8 +86,7 @@ Use the COM port dropdown to select the serial port to use to communicate with t
 
 ![Screenshot 2025-02-22 at 17 21 56](https://github.com/user-attachments/assets/482cd7b9-3c1d-4942-b402-4ce0fb163967)
 
-Use the Controller type dropdown to select the Arduino Board you are using. At the moment there is only support for the Uno R3.
-
+Use the Controller type dropdown to select the Arduino Board you are using. At the moment there is only support for the Uno R3.\
 Under GPIO Configuration select the pins you are going to use as inputs and mark any unused pins as disabled.
 
 ![image](https://github.com/user-attachments/assets/e4ac1af4-0a93-4158-ac67-5d155ead418f)
@@ -99,7 +94,7 @@ Under GPIO Configuration select the pins you are going to use as inputs and mark
 Once done, hit save.
 
 ## Creating Trigger Groups
-Trigger Groups are used to group physical and logical triggers to target indicator lights.
+Trigger Groups are used to group physical and logical triggers to target indicator lights.\
 Trigger Types:
 - Controller: A Physical GPI on a microcontroller
 - Network: An inbound OSC Message
@@ -120,19 +115,44 @@ Go to the Messaging Groups tab, enter a name for you message group and hit save.
 <img width="1280" height="201" alt="Screenshot 2025-09-19 at 08 29 43" src="https://github.com/user-attachments/assets/07837c0f-6f9e-4d6c-89f5-a000b18c9b93" />
 
 ## Adding logos to the database
-Logos should have an aspect ratio of 30:9 to avoid scaling issues, e.g. 300 x 90 or 600x180, add an appropriatley sized logo depending on your intended display resolution.
-
-Images must be in PNG format.
-
+Logos should have an aspect ratio of 30:9 to avoid scaling issues, e.g. 300 x 90 or 600x180, add an appropriatley sized logo depending on your intended display resolution.\
+Images must be in PNG format.\
 To add a logo image head to the Image Store tab.\
-Click add image then click select an image file.
+Click add image then click select an image file.\
 Once the preview is shown, hit save.
 
 <img width="594" height="138" alt="Screenshot 2025-09-19 at 08 40 57" src="https://github.com/user-attachments/assets/893fdcc3-c29c-4b88-ae85-a98c172768db" />
 
 ## Creating Display Templates
 
+Head to the Display Templates tab.\
+Name the display template.\
+Select the desired layout, currently the options are fullscreen clock or clock with indicators.\
+Select the logo you want to use, the ones uploaded should appear in the dropdown.\
+Slelect your clock type.\
+Select the number of indicators to display.
+<img width="948" height="307" alt="Screenshot 2025-09-19 at 23 30 41" src="https://github.com/user-attachments/assets/0b781708-da01-4d02-81fb-fd7c0021915e" />
 
+In the indicators section, set the label for the indicator.\
+The True / False dropdown is used to determine whether the indicator flashes or not. True = Flash, False = No Flash, Steady On.\
+Select "Click to choose colour" to select the indicator on colour.\
+Do this for each indicator then hit save.
+
+
+<img width="947" height="383" alt="Screenshot 2025-09-19 at 23 34 33" src="https://github.com/user-attachments/assets/c2364829-7e54-413d-a977-7cf63b827a9c" />
+
+## Adding a Client Display Device
+
+Name the device.\
+Set it's IP address.\
+Set it's location, this is used for logical grouping.\
+Select the Messaging and Trigger Group from the dropdown.\
+Select the Display Template from the dropdown.\
+Hit save.
+
+When a client has been added three buttons will be available below the device settings allowing the user to reload the displayu template if changes are made and identify the device.
+
+<img width="1280" height="800" alt="Screenshot 2025-09-19 at 23 38 14" src="https://github.com/user-attachments/assets/9d45b9a0-8c8f-405b-b1f7-f4a6401df074" />
 
 # Server API - For Interaction by external devices and software - OSC - UDP / TCP Port 1337
 
