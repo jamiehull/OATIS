@@ -81,6 +81,7 @@ Hit Add Controller.
 Enter a name for the controller.
 
 If the controller is running on the same machine as the server - select local\
+
 If the controller is running on another machine - select remote (Not yet implemented - Will be in version 2)
 
 ![image](https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f)
@@ -98,10 +99,40 @@ Under GPIO Configuration select the pins you are going to use as inputs and mark
 Once done, hit save.
 
 ## Creating Trigger Groups
-
+Trigger Groups are used to group physical and logical triggers to target indicator lights.
 Trigger Types:
 - Controller: A Physical GPI on a microcontroller
 - Network: An inbound OSC Message
+
+Go to the Trigger Groups Tab\
+Set a name for the Trigger Group.\
+For each indicator choose the controller that will be the source trigger.\
+If the network controller is selected, an OSC address for triggering that indicator will automatically populate.\
+If a physical controller is selected select the source GPI.\
+If you are not planning on using all the indicators leave these set to Network.
+
+<img width="949" height="725" alt="Screenshot 2025-09-19 at 08 21 30" src="https://github.com/user-attachments/assets/f1cd32c7-2c61-4beb-9c46-d3f5b8bc1695" />
+
+## Creating Message Groups
+Message groups are used to logically group displays when sending messages to them.\
+Go to the Messaging Groups tab, enter a name for you message group and hit save.
+
+<img width="1280" height="201" alt="Screenshot 2025-09-19 at 08 29 43" src="https://github.com/user-attachments/assets/07837c0f-6f9e-4d6c-89f5-a000b18c9b93" />
+
+## Adding logos to the database
+Logos should have an aspect ratio of 30:9 to avoid scaling issues, e.g. 300 x 90 or 600x180, add an appropriatley sized logo depending on your intended display resolution.
+
+Images must be in PNG format.
+
+To add a logo image head to the Image Store tab.\
+Click add image then click select an image file.
+Once the preview is shown, hit save.
+
+<img width="594" height="138" alt="Screenshot 2025-09-19 at 08 40 57" src="https://github.com/user-attachments/assets/893fdcc3-c29c-4b88-ae85-a98c172768db" />
+
+## Creating Display Templates
+
+
 
 # Server API - For Interaction by external devices and software - OSC - UDP / TCP Port 1337
 
