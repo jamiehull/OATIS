@@ -464,47 +464,61 @@ class Device_Config(BaseFrame):
         pass
 
     def __reload_device_display(self):
-        #Get the devices IP
-        device_ip = self.device_ip_var.get()
-        device_id = self.device_id_var.get()
+        try:
+            #Get the devices IP
+            device_ip = self.device_ip_var.get()
+            device_id = self.device_id_var.get()
 
-        #Read the Server Settings file
-        settings_dict = open_json_file("server/settings.json")
+            #Read the Server Settings file
+            settings_dict = open_json_file("server/settings.json")
 
-        #Only send a command to the server if it has an ip set
-        if settings_dict != False:
-            server_ip = (settings_dict["server_ip"])
+            #Only send a command to the server if it has an ip set
+            if settings_dict != False:
+                server_ip = (settings_dict["server_ip"])
 
-            #Send the raise frame command to the server
-            self.tcp_client = TCP_Client()
-            message = self.tcp_client.build_tcp_message("/control/client/reload_display_template", {"device_id" : device_id}, None)
-            response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
-            response = self.tcp_client.decode_data(response_bytes)
-            self.logger.debug(f"Response from Server: {response}")
+                #Send the raise frame command to the server
+                self.tcp_client = TCP_Client()
+                message = self.tcp_client.build_tcp_message("/control/client/reload_display_template", {"device_id" : device_id}, None)
+                response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
+                response = self.tcp_client.decode_data(response_bytes)
+                self.logger.debug(f"Response from Server: {response}")
+
+            else:
+                self.logger.error(f"Server IP address not set, please set in config tool.")
+
+        except Exception as e:
+            self.logger.error(f"Cannot send Reload Message to server: {e}")
         
 
     def __identify_device(self, state:bool):
-        #Get the devices IP
-        device_id = self.device_id_var.get()
+        try:
+            #Get the devices IP
+            device_id = self.device_id_var.get()
 
-        #Read the Server Settings file
-        settings_dict = open_json_file("server/settings.json")
+            #Read the Server Settings file
+            settings_dict = open_json_file("server/settings.json")
 
-        #Only send a command to the server if it has an ip set
-        if settings_dict != False:
-            server_ip = (settings_dict["server_ip"])
+            #Only send a command to the server if it has an ip set
+            if settings_dict != False:
+                server_ip = (settings_dict["server_ip"])
 
-            if state == True:
-                frame = "identify"
+                if state == True:
+                    frame = "identify"
+                else:
+                    frame = "OATIS"
+
+                #Send the raise frame command to the server
+                self.tcp_client = TCP_Client()
+                message = self.tcp_client.build_tcp_message("/control/client/raise_frame", {"device_id" : device_id, "frame" : frame}, None)
+                response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
+                response = self.tcp_client.decode_data(response_bytes)
+                self.logger.debug(f"Response from Server: {response}")
+
             else:
-                frame = "OATIS"
+                self.logger.error(f"Server IP address not set, please set in config tool.")
 
-            #Send the raise frame command to the server
-            self.tcp_client = TCP_Client()
-            message = self.tcp_client.build_tcp_message("/control/client/raise_frame", {"device_id" : device_id, "frame" : frame}, None)
-            response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
-            response = self.tcp_client.decode_data(response_bytes)
-            self.logger.debug(f"Response from Server: {response}")
+        except Exception as e:
+            self.logger.error(f"Cannot send Identify Message to server: {e}")
 
 class GPIO_Config(BaseFrame):
     def __init__(self, parent, database_connection):
