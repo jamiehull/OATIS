@@ -133,16 +133,17 @@ class Indicator_Lamps_Vertical(Widget):
     def __indicator_flash_enable(self, indicator_index_list:list):
         """Makes an indicator Flash."""
         for indicator_index in indicator_index_list:
-
             if indicator_index not in self.flashing_list:
                 self.flashing_list.append(indicator_index)
 
     def __indicator_flash_disable(self, indicator_index_list:list):
         """Turns flashing off for specified indicators."""
         for indicator_index in indicator_index_list:
-
             if indicator_index in self.flashing_list:
                 self.flashing_list.remove(indicator_index)
+                #Set colour back to off colour
+                self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
+                print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
 
     def __indicator_on(self, indicator_index_list:list):
         """Turns an indicator on."""
