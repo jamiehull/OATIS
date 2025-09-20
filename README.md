@@ -207,7 +207,7 @@ Select which message groups you want to send the message to and move these to th
 Once happy click the green arrow to make the message active.\
 The message groups will move to the active messages column.
 
-<img width="1919" height="1054" alt="Screenshot 2025-09-20 at 20 40 23" src="https://github.com/user-attachments/assets/8e46c748-0239-4a70-b22d-dfe096195e42" />
+<img width="1917" height="1079" alt="Screenshot 2025-09-20 at 21 16 21" src="https://github.com/user-attachments/assets/d92004ac-bb7c-409a-a827-2b19a4bac440" />
 
 ## Stopping a message
 Select from the active messages column the messages you want to stop.\
