@@ -2,7 +2,6 @@
 
 <img width="3000" height="900" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
-
 ## Overview
 
 OATIS is a tally indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows as it has not currently been tested (I don't own a Windows PC...).
@@ -75,7 +74,7 @@ Upload the Sketch to your Board, your now ready to use the microcontroller with 
 
 ## Set Server IP Address
 
-Launch the Config tool, navigate to the Server Config tab.\
+Launch the Config tool using the main_config_tool.py script, navigate to the Server Config tab.\
 Select IP Settings.\
 Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
 A loopback IP address will also be shown which can be used for system testing if you want to run the client and server on the same machine.
@@ -166,7 +165,57 @@ When a client has been added three buttons will be available below the device se
 
 <img width="1280" height="800" alt="Screenshot 2025-09-19 at 23 38 14" src="https://github.com/user-attachments/assets/9d45b9a0-8c8f-405b-b1f7-f4a6401df074" />
 
-# Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
+# Launching the Server
+Launch the server using the main_server.py script.\
+Make sure any physical GPIO controllers are plugged in when launching hte server application and that you have set the server IP address in config tool before launching.\
+If you don't set the IP address the server will default to the loopback address of 127.0.0.1.\
+If you change the server IP address when the server is running, you will need to restart the server for this to take affect.
+
+The server will report it's status at regular intervals, if everything is ok the terminal output should look similar to below:
+<img width="665" height="100" alt="Screenshot 2025-09-20 at 18 33 09" src="https://github.com/user-attachments/assets/2015ddc8-ed01-4b26-9be2-f7eed497ba38" />
+
+# Launching the Remote Client
+Launch the main_client.py script.
+On the first run the terminal window will prompt you to set the IP address to use for the client and the server, follow the prompts.\
+Once these IP's have been set the client will boot straight up in future.\
+If you need to change these in the future amend the settings file in /client/data/settings.json and reboot the client.
+
+<img width="523" height="113" alt="Screenshot 2025-09-20 at 20 16 45" src="https://github.com/user-attachments/assets/27fe70be-9ff4-4b91-9150-aad5876c3f86" />
+
+If the client has a successfull connection to the server, the small circular indicator in the bottom of the clockface will remain grey. If the server cannot be reached this will flash red.
+
+#Launching the Message Console
+Launch the main_message_console.py script.\
+On first run it will default to the loopback address and will probably show Server Offline if the server is using a different IP.
+
+<img width="1918" height="45" alt="Screenshot 2025-09-20 at 20 29 48" src="https://github.com/user-attachments/assets/9ba43ee8-4703-4991-a3b5-33c7e6e10ec1" />
+
+To set the IP of the Message Console, hit ESC to bring up the configuration window.\
+Use the dropdown to set the device IP and enter the Server IP.\
+Hit Save, you will automatically return to the Message Console main screen.
+
+<img width="1091" height="516" alt="Screenshot 2025-09-20 at 20 33 06" src="https://github.com/user-attachments/assets/0b9d9650-562c-490a-8c09-fdcefc47d949" />
+
+If you've set everything correctly, Message Groups assigned ot devices will populate in the GUI.\
+The status bar will show as below:
+<img width="1923" height="39" alt="Screenshot 2025-09-20 at 20 34 11" src="https://github.com/user-attachments/assets/bbdc9e9c-f56e-419b-b7c4-6cde4988d7a6" />
+
+## Sending a Message
+Use the top free-text field to enter your message.\
+Choose a background colour.\
+Select which message groups you want to send the message to and move these to the selected groups column using the arrow.\
+Once happy click the green arrow to make the message active.\
+The message groups will move to the active messages column.
+
+<img width="1919" height="1054" alt="Screenshot 2025-09-20 at 20 40 23" src="https://github.com/user-attachments/assets/8e46c748-0239-4a70-b22d-dfe096195e42" />
+
+## Stopping a message
+Select from the active messages column the messages you want to stop.\
+Hit the red arrow button.
+
+# API's 
+
+## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
 
 #### Sending a message to one or more Message groups
 ```
