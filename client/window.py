@@ -658,10 +658,10 @@ class Window:
         if self.layout == "Clock With Indicators":
             indicators_widget : Indicator_Lamps_Vertical = self.widget_dict[1]
             if state == 1:
-                indicators_widget.indicator_on([indicator_address])
+                indicators_widget.trigger_indicator_on([indicator_address])
                 print("Indicator On")
             else:
-                indicators_widget.indicator_off([indicator_address])
+                indicators_widget.trigger_indicator_off([indicator_address])
                 print("Indicator Off")
 
     def ticker_handler(self, address, *args):
