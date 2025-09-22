@@ -74,6 +74,14 @@ Open Arduino IDE and navigate to File > Examples > FirmataExpress > FirmataExpre
 
 Upload the Sketch to your Board, your now ready to use the microcontroller with OATIS.
 
+## Build the Database - It's not as scrary as it sounds...I promise!
+OATIS will not run without a valid database file. The database needs to be built using the config tool.\
+Launch the Config tool using the main_config_tool.py script.\
+A prompt will show on the first run as below, select yes. The required tables and default data the application needs to run will be built and added.
+Config tool will then continue to boot.
+
+<img width="261" height="250" alt="Screenshot 2025-09-22 at 21 47 50" src="https://github.com/user-attachments/assets/d1a48e9a-f813-4b85-81fc-4c1fc8a269cd" />
+
 ## Set Server IP Address
 
 Launch the Config tool using the main_config_tool.py script, navigate to the Server Config tab.\
@@ -105,6 +113,9 @@ Under GPIO Configuration select the pins you are going to use as inputs and mark
 ![image](https://github.com/user-attachments/assets/e4ac1af4-0a93-4158-ac67-5d155ead418f)
 
 Once done, hit save.
+
+PLEASE NOTE: Any changes to the COM Port, or Pin configuration will require a server restart for these changes to take effect.\
+Controller config is uploaded to the Arduino on Server boot.
 
 ## Creating Trigger Groups
 Trigger Groups are used to group physical and logical triggers to target indicator lights.\
