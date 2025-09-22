@@ -42,6 +42,7 @@ class Window:
         self.server_tcp_port = 1339
 
         #Paths
+        self.default_display_template_path = path.abspath(path.join(path.dirname(__file__), "data/default_display_template.json"))
         self.display_template_path = path.abspath(path.join(path.dirname(__file__), "data/display_template.json"))
         self.settings_path = path.abspath(path.join(path.dirname(__file__), "data/settings.json"))
 
@@ -365,7 +366,7 @@ class Window:
             clock_type : str = template_dict["clock_type"]
         except Exception as e:
             self.logger.error(f"Unable to open display template file:{e}")
-            template_dict = open_json_file(self.display_template_path)
+            template_dict = open_json_file(self.default_display_template_path)
             self.layout : str = template_dict["layout"]
             self.total_indicators : int = template_dict["indicators_displayed"]
             clock_type : str = template_dict["clock_type"]
