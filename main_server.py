@@ -32,6 +32,12 @@ class Main_Server:
         self.db = DB() 
         self.router = Router()
 
+        #Verify the database
+        db_status = self.db.verify_database_setup()
+        if db_status != True:
+            self.logger.error("Database invalid or missing, please rebuild the database in config tool and re-launch the server.")
+            quit()
+
         #Create an instance of the OSC_Server
         self.osc_server = OSC_Server(self.ip, self.osc_port)
 
