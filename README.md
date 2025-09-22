@@ -16,10 +16,10 @@ Tally's can be triggered either from Physical GPI's or via OSC commands.
 - Customizable logos.
 - Choose between Analogue and Studio Style Clocks.
 - Choice of a variety of display layouts.
-<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/d8e9900e-d576-4c17-9b3d-c7b6fee38491" />
-<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/2a8b6503-20bd-499d-9b97-fbee920f59d6" />
-<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/6a45b3d0-873c-40bb-bb42-ab1a3d11b12a" />
-<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/1312290b-82ff-4588-9428-3f1b35e401c9" />
+<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/d8e9900e-d576-4c17-9b3d-c7b6fee38491" />
+<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/2a8b6503-20bd-499d-9b97-fbee920f59d6" />
+<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/6a45b3d0-873c-40bb-bb42-ab1a3d11b12a" />
+<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/1312290b-82ff-4588-9428-3f1b35e401c9" />
 
 ### Messaging:
 - Client displays can be used to show short messages by way of a scrolling ticker at the top of the screen.
@@ -27,8 +27,8 @@ Tally's can be triggered either from Physical GPI's or via OSC commands.
 - Clients are segregated into logical Messaging groups for sending messages to a group of clients.
 - Message console application for sending messages to clients.
   
-<img width="480" height="270" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
-<img width="480" height="270" alt="Message Console" src="https://github.com/user-attachments/assets/5b0f7757-2cda-49ff-b7be-2ad6e8e895cb" />
+<img width="1920" height="1080" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
+<img width="1920" height="1080" alt="Message Console" src="https://github.com/user-attachments/assets/5b0f7757-2cda-49ff-b7be-2ad6e8e895cb" />
 
 ### Physical and Network triggers:
 - Support for physical GPI's using the Arduino Uno R3 - (Arduino Mega support to be added in next release)
@@ -49,11 +49,13 @@ Display Template - A template used to render a client display with the correct c
 Devices - A client display device.
 
 # Setup
-
-If you are using Physical GPI's the Arduino needs to be flashed with the Firmata code to enable communication via serial with OATIS. See below for steps how to do this.
+## Install the Dependencies in the requirements.txt file
+```
+pip3 install -r requirements.txt
+```
 
 ## Microcontroller Setup 
-
+If you are using Physical GPI's the Arduino needs to be flashed with the Firmata code to enable communication via serial with OATIS. See below for steps how to do this.\
 Currently the application has been designed to use the Arduino Uno R3 Microcontroller for GPI's using the Firmata protocol to notify the application of GPI state changes.
 
 Open Arduino IDE, navigate to Tools > Manage Libraries
