@@ -1,0 +1,14 @@
+#Python 3.11.8
+
+#Server
+python-osc == 1.9.3
+pymata_express == 1.21
+netifaces == 0.11.0
+
+#Config Tool / Message Console
+customtkinter == 5.2.2
+pillow == 11.3.0
+
+#Client
+pygame == 2.6.1
+
