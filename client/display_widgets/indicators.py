@@ -40,6 +40,9 @@ class Indicator_Lamps_Vertical(Widget):
         self.font = pygame.font.SysFont('arial', self.text_size)
         self.text_size_list = []
 
+        #List of indicators with flash enabled
+        self.flash_enabled_list = indicator_flash_list
+
         #Flash Frequency
         self.flash_period = 1000 #Time between flashes in ms
         self.flashing_list = [] #List of label indexes currently flashing
@@ -127,37 +130,56 @@ class Indicator_Lamps_Vertical(Widget):
 
                 self.change_time = current_time + self.flash_period
 
-    def indicator_flash_enable(self, indicator_index_list:list):
+    def __indicator_flash_enable(self, indicator_index_list:list):
         """Makes an indicator Flash."""
         for indicator_index in indicator_index_list:
-            if indicator_index in range (0, self.number_of_indicators):
-                if indicator_index not in self.flashing_list:
-                    self.flashing_list.append(indicator_index)
+            if indicator_index not in self.flashing_list:
+                self.flashing_list.append(indicator_index)
 
-    def indicator_flash_disable(self, indicator_index_list:list):
+    def __indicator_flash_disable(self, indicator_index_list:list):
         """Turns flashing off for specified indicators."""
         for indicator_index in indicator_index_list:
-            if indicator_index in range (0, self.number_of_indicators):
-                if indicator_index in self.flashing_list:
-                    self.flashing_list.remove(indicator_index)
-
-    def indicator_on(self, indicator_index_list:list):
-        """Turns an indicator on."""
-        for indicator_index in indicator_index_list:
-            if indicator_index in range (0, self.number_of_indicators):
-                print(f"Turning indicator {indicator_index} on")
-
-                self.indicator_current_colour_list[indicator_index] = self.indicator_on_rgb_colour_list[indicator_index]
+            if indicator_index in self.flashing_list:
+                self.flashing_list.remove(indicator_index)
+                #Set colour back to off colour
+                self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
                 print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
 
-    def indicator_off(self, indicator_index_list:list):
+    def __indicator_on(self, indicator_index_list:list):
+        """Turns an indicator on."""
+        for indicator_index in indicator_index_list:
+
+            print(f"Turning indicator {indicator_index} on")
+
+            self.indicator_current_colour_list[indicator_index] = self.indicator_on_rgb_colour_list[indicator_index]
+            print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+
+    def __indicator_off(self, indicator_index_list:list):
+        """Turns an indicator off."""
+        for indicator_index in indicator_index_list:
+
+            print(f"Turning indicator {indicator_index} off")
+            
+            self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
+            print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+
+    def trigger_indicator_on(self, indicator_index_list:list):
+        """Triggers an indicator on, triggers either a steady on or flash depending on display template config."""
+        for indicator_index in indicator_index_list:
+            if indicator_index in range (0, self.number_of_indicators):
+                if self.flash_enabled_list[indicator_index] == "True":
+                    self.__indicator_flash_enable(indicator_index_list)
+                else:
+                    self.__indicator_on(indicator_index_list)
+
+    def trigger_indicator_off(self, indicator_index_list:list):
         """Turns an indicator off."""
         for indicator_index in indicator_index_list:
             if indicator_index in range (0, self.number_of_indicators):
-                print(f"Turning indicator {indicator_index} off")
-                
-                self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
-                print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+                if self.flash_enabled_list[indicator_index] == "True":
+                    self.__indicator_flash_disable(indicator_index_list)
+                else:
+                    self.__indicator_off(indicator_index_list)
 
 
 

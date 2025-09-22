@@ -127,7 +127,7 @@ class Message_Console:
         self.tree_container_frame.rowconfigure(0, weight=1)
 
         #Column 1
-        self.column1_frame = Selection_Column(self.tree_container_frame, "Message Groups", "Select All", self.default_font, self.__select_all_groups)
+        self.column1_frame = Selection_Column(self.tree_container_frame, "Message Groups", "Select All", self.default_font, self.__select_all_groups_column1)
         self.column1_frame.grid(column=0, row=0, sticky="nsew")
 
         #Column 2
@@ -160,7 +160,7 @@ class Message_Console:
         self.stop_btn.grid(column=0, row=1, sticky="")
 
         #Column 5
-        self.column5_frame = Selection_Column(self.tree_container_frame, "Active Messages", "View Scheduled Messages", self.default_font, self.__clear_selections)
+        self.column5_frame = Selection_Column(self.tree_container_frame, "Active Messages", "Select All", self.default_font, self.__select_all_groups_column5)
         self.column5_frame.grid(column=4, row=0, sticky="nsew")
 
         #Control Frame
@@ -292,8 +292,11 @@ class Message_Console:
     def __clear_selections(self):
         self.column3_frame.clear_tree()
     #Selects all groups in the first column
-    def __select_all_groups(self):
+    def __select_all_groups_column1(self):
         self.column1_frame.focus_all_items()
+    #Selects all groups in the third column
+    def __select_all_groups_column5(self):
+        self.column5_frame.focus_all_items()
     #Updates active messages tree given a list of message groups in [[id, name],...] format.
     def __update_active_messages_tree(self, active_message_groups_list):
         self.column5_frame.clear_tree()

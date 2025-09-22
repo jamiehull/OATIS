@@ -1,33 +1,44 @@
 # OATIS - On Air Tally Indicator System
 
+<img width="3000" height="900" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
+
 ## Overview
 
-OATIS is an indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows as it has not currently been tested (I don't own a Windows PC...).
+OATIS is a tally indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows as it has not currently been tested (I don't own a Windows PC...).
 
 Designed to operate in a server-client model, multiple displays can be centrally managed using a lightweight server application and configuration tool.
 
-<img width="1280" height="799" alt="Screenshot 2025-09-17 at 06 47 19" src="https://github.com/user-attachments/assets/16a7c8ef-395b-41d6-92a3-cf1fbccc62e9" />
+Tally's can be triggered either from Physical GPI's or via OSC commands.
 
 ## Features
-Customizable displays:
-- Configure the number of indicators to display(currently up to 6), their colour and text.
-- Customizable logos
-- Choose between Analogue and Studio Style Clocks
+### Customizable displays:
+- Configure the number of indicators to display(currently up to 6), their colour and text. (More indicators will be available in the next release)
+- Customizable logos.
+- Choose between Analogue and Studio Style Clocks.
 - Choice of a variety of display layouts.
-  
-Messaging:
+<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/d8e9900e-d576-4c17-9b3d-c7b6fee38491" />
+<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/2a8b6503-20bd-499d-9b97-fbee920f59d6" />
+<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/6a45b3d0-873c-40bb-bb42-ab1a3d11b12a" />
+<img width="480" height="270" alt="Layout" src="https://github.com/user-attachments/assets/1312290b-82ff-4588-9428-3f1b35e401c9" />
+
+### Messaging:
 - Client displays can be used to show short messages by way of a scrolling ticker at the top of the screen.
 - The background colour of each message can be chosen by the user.
 - Clients are segregated into logical Messaging groups for sending messages to a group of clients.
 - Message console application for sending messages to clients.
   
-Physical and Network triggers:
-- Support for physical GPI's usning the Arduino Uno R3 - (Arduino Mega support to be added in version 2)
+<img width="480" height="270" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
+<img width="480" height="270" alt="Message Console" src="https://github.com/user-attachments/assets/5b0f7757-2cda-49ff-b7be-2ad6e8e895cb" />
+
+### Physical and Network triggers:
+- Support for physical GPI's using the Arduino Uno R3 - (Arduino Mega support to be added in next release)
 - Support for network triggers using the OSC Protocol
   
-Remote management of Display Devices:
+### Remote management of Display Devices:
 - Device settings can be changed remotley using the configuration tool
 - Display customizations can be sent to the device for rendering
+- Devices can be idented using the configuration tool, bringing up a device information screen showing the clients configuration.
+<img width="1920" height="1080" alt="Identify Screen" src="https://github.com/user-attachments/assets/13749a5b-f4fc-4f19-9ea2-eda29f7db0d4" />
 
 ## Terminology
 
@@ -63,7 +74,7 @@ Upload the Sketch to your Board, your now ready to use the microcontroller with 
 
 ## Set Server IP Address
 
-Launch the Config tool, navigate to the Server Config tab.\
+Launch the Config tool using the main_config_tool.py script, navigate to the Server Config tab.\
 Select IP Settings.\
 Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
 A loopback IP address will also be shown which can be used for system testing if you want to run the client and server on the same machine.
@@ -78,11 +89,11 @@ Navigate to the GPIO Config tab.\
 Hit Add Controller.\
 Enter a name for the controller.\
 If the controller is running on the same machine as the server - select local\
-If the controller is running on another machine - select remote (Not yet implemented - Will be in version 2)
+If the controller is running on another machine - select remote (Not yet implemented - Will be in next release)
 
 ![image](https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f)
 
-Use the COM port dropdown to select the serial port to use to communicate with the Arduino
+Use the COM port dropdown to select the USB-Serial port to use to communicate with the Arduino
 
 ![Screenshot 2025-02-22 at 17 21 56](https://github.com/user-attachments/assets/482cd7b9-3c1d-4942-b402-4ce0fb163967)
 
@@ -110,7 +121,7 @@ If you are not planning on using all the indicators leave these set to Network.
 
 ## Creating Message Groups
 Message groups are used to logically group displays when sending messages to them.\
-Go to the Messaging Groups tab, enter a name for you message group and hit save.
+Go to the Messaging Groups tab, enter a name for your message group and hit save.
 
 <img width="1280" height="201" alt="Screenshot 2025-09-19 at 08 29 43" src="https://github.com/user-attachments/assets/07837c0f-6f9e-4d6c-89f5-a000b18c9b93" />
 
@@ -129,7 +140,7 @@ Head to the Display Templates tab.\
 Name the display template.\
 Select the desired layout, currently the options are fullscreen clock or clock with indicators.\
 Select the logo you want to use, the ones uploaded should appear in the dropdown.\
-Slelect your clock type.\
+Select your clock type.\
 Select the number of indicators to display.
 <img width="948" height="307" alt="Screenshot 2025-09-19 at 23 30 41" src="https://github.com/user-attachments/assets/0b781708-da01-4d02-81fb-fd7c0021915e" />
 
@@ -138,11 +149,11 @@ The True / False dropdown is used to determine whether the indicator flashes or 
 Select "Click to choose colour" to select the indicator on colour.\
 Do this for each indicator then hit save.
 
-
 <img width="947" height="383" alt="Screenshot 2025-09-19 at 23 34 33" src="https://github.com/user-attachments/assets/c2364829-7e54-413d-a977-7cf63b827a9c" />
 
 ## Adding a Client Display Device
 
+Click on the Device Config tab.\
 Name the device.\
 Set it's IP address.\
 Set it's location, this is used for logical grouping.\
@@ -150,11 +161,61 @@ Select the Messaging and Trigger Group from the dropdown.\
 Select the Display Template from the dropdown.\
 Hit save.
 
-When a client has been added three buttons will be available below the device settings allowing the user to reload the displayu template if changes are made and identify the device.
+When a client has been added three buttons will be available below the device settings allowing the user to reload the display template if changes are made, and identify the device.
 
 <img width="1280" height="800" alt="Screenshot 2025-09-19 at 23 38 14" src="https://github.com/user-attachments/assets/9d45b9a0-8c8f-405b-b1f7-f4a6401df074" />
 
-# Server API - For Interaction by external devices and software - OSC - UDP / TCP Port 1337
+# Launching the Server
+Launch the server using the main_server.py script.\
+Make sure any physical GPIO controllers are plugged in when launching hte server application and that you have set the server IP address in config tool before launching.\
+If you don't set the IP address the server will default to the loopback address of 127.0.0.1.\
+If you change the server IP address when the server is running, you will need to restart the server for this to take affect.
+
+The server will report it's status at regular intervals, if everything is ok the terminal output should look similar to below:
+<img width="665" height="100" alt="Screenshot 2025-09-20 at 18 33 09" src="https://github.com/user-attachments/assets/2015ddc8-ed01-4b26-9be2-f7eed497ba38" />
+
+# Launching the Remote Client
+Launch the main_client.py script.
+On the first run the terminal window will prompt you to set the IP address to use for the client and the server, follow the prompts.\
+Once these IP's have been set the client will boot straight up in future.\
+If you need to change these in the future amend the settings file in /client/data/settings.json and reboot the client.
+
+<img width="523" height="113" alt="Screenshot 2025-09-20 at 20 16 45" src="https://github.com/user-attachments/assets/27fe70be-9ff4-4b91-9150-aad5876c3f86" />
+
+If the client has a successfull connection to the server, the small circular indicator in the bottom of the clockface will remain grey. If the server cannot be reached this will flash red.
+
+#Launching the Message Console
+Launch the main_message_console.py script.\
+On first run it will default to the loopback address and will probably show Server Offline if the server is using a different IP.
+
+<img width="1918" height="45" alt="Screenshot 2025-09-20 at 20 29 48" src="https://github.com/user-attachments/assets/9ba43ee8-4703-4991-a3b5-33c7e6e10ec1" />
+
+To set the IP of the Message Console, hit ESC to bring up the configuration window.\
+Use the dropdown to set the device IP and enter the Server IP.\
+Hit Save, you will automatically return to the Message Console main screen.
+
+<img width="1091" height="516" alt="Screenshot 2025-09-20 at 20 33 06" src="https://github.com/user-attachments/assets/0b9d9650-562c-490a-8c09-fdcefc47d949" />
+
+If you've set everything correctly, Message Groups assigned ot devices will populate in the GUI.\
+The status bar will show as below:
+<img width="1923" height="39" alt="Screenshot 2025-09-20 at 20 34 11" src="https://github.com/user-attachments/assets/bbdc9e9c-f56e-419b-b7c4-6cde4988d7a6" />
+
+## Sending a Message
+Use the top free-text field to enter your message.\
+Choose a background colour.\
+Select which message groups you want to send the message to and move these to the selected groups column using the arrow.\
+Once happy click the green arrow to make the message active.\
+The message groups will move to the active messages column.
+
+<img width="1917" height="1079" alt="Screenshot 2025-09-20 at 21 16 21" src="https://github.com/user-attachments/assets/d92004ac-bb7c-409a-a827-2b19a4bac440" />
+
+## Stopping a message
+Select from the active messages column the messages you want to stop.\
+Hit the red arrow button.
+
+# API's 
+
+## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
 
 #### Sending a message to one or more Message groups
 ```
@@ -170,244 +231,6 @@ When a client has been added three buttons will be available below the device se
 ```
 state = True => Signal Light On \
 state = False => Signal Light Off
-
-
-# Internal Server Network Commands - Used between RDS Applications and the server - TCP Port 1339
-
-## Client to Server
-Current as of 12/06/2025.
-### Requesting the assigned display template from the server
-Send a dictionary in JSON format
-```
-{
-    "command" : "/config/display_template/get",
-    "arguments" : {
-        "timestamp" : timestamp_of_local_template, 
-        "client_ip" : client_ip_address},
-    "data" : None
-}
-```
-If timestamp == 0 this signals to the server the client has no existing display template.\
-Any other timestamp will be the timestamp when the locally stored display template was modified on the server.\
-If the timestamp does not match the one held on the server for the given display template, this indicates the display template has been modified on the server, the server will re-send the display template.
-
-Returns:
-```
-{
-    "command": "/config/display_template/get",
-    "arguments": {
-        "display_template_currrent" : match_status},
-    "data": None / display_template
-}
-```
-match_status = True - The display template matches the server. In this case the data field will be None.\
-match_status = False - The display template does not match the server. The data field contaions the display template as a list.
-
-### Requesting the Clients Configuration
-Send a dictionary in JSON format
-```
-{
-    "command" : "/config/device/get",
-    "arguments" : {
-        "client_ip" : client_ip_address},
-    "data" : None
-}
-```
-
-Returns:
-```
-{
-    "command": "/config/device/get",
-    "arguments": {
-        "device_name" : device_name,
-        "device_ip" : device_ip,
-        "device_location" : device_location,
-        "message_group" : message_group_name,
-        "trigger_group" : trigger_group_name,
-        "display_template" : display_template_name
-        },
-    "data": null
-}
-```
-
-### Requesting an Image File
-Send a dictionary in JSON format
-```
-{
-    "command" : "/assets/images/get",
-    "arguments" : {
-        "image_id" : "image_id"
-                },
-    "data" : None
-}
-```
-Returns an image file in byte format.
-
-### Hearbeat
-Send a dictionary in JSON format
-```
-{
-    "command" : "heartbeat",
-    "arguments" : {
-        "client_ip" : "client_ip"
-                },
-    "data" : None
-}
-```
-Returns:
-```
-{
-    "command": "heartbeat",
-    "arguments": {
-        "status" : "OK",
-        "timestamp" : timestamp
-        },
-    "data": None
-}
-```
-
-
-## Config Tool to Server
-Current as of 12/06/2025.
-### Raising a Client Frame
-Send a dictionary in JSON format
-```
-{
-    "command" : "/control/client/raise_frame",
-    "arguments" : {
-        "device_id" : device_id,
-        "frame" : frame_name
-        },
-    "data" : None
-}
-```
-Available frame_names:
-- default
-- identify
-- rds
-- settings
-
-Returns:
-```
-{
-    "command": "/control/client/raise_frame",
-    "arguments": {
-        "status": "OK"},
-    "data": null
-}
-```
-
-### Triggering a Client to Re-render it's display
-Send a dictionary in JSON format
-```
-{
-    "command" : "/control/client/reload_display_template",
-    "arguments" : {
-        "device_id" : device_id
-        },
-    "data" : None
-}
-```
-Returns:
-```
-{
-    "command": "/control/client/reload_display_template",
-    "arguments": {
-        "status": "OK"},
-    "data": null
-}
-```
-
-## Message Console to Server
-
-### Get a list of all message groups
-Send a dictionary in JSON format
-```
-{
-    "command" : "/config/message_groups/get",
-    "arguments" : None
-    "data" : None
-}
-```
-Returns => A list of all configured message group id's / names as a JSON list
-
-### Get a list of all devices
-Send a dictionary in JSON format
-```
-{
-    "command" : "/config/devices/get",
-    "arguments" : None
-    "data" : None
-}
-```
-Returns => A list of all configured devices group id's / names as a JSON list
-
-### Sending a message to multiple message groups
-Send a dictionary in JSON format
-```
-{
-    "command" : "/messaging/send_to_multiple",
-    "arguments" : {
-        "message" : "message_text"
-        "bg_colour" : "bg_colour_hex"
-                },
-    "data" : [[message_group_id,"message_group_name"],[message_group_id,"message_group_name"],...]
-}
-```
-Server will respond with:
-```
-{
-    "command" : "/messaging/send_to_multiple",
-    "arguments" : {
-        "status" : "OK/ERROR",
-        "message_id" : message_id,
-        "active_message_groups" : [[message_group_id,"message_group_name"],[message_group_id,"message_group_name"],...]
-                    }
-    "data" : None
-}
-```
-
-### Cancelling one or more messages
-Send a dictionary in JSON format. 
-The data field contains a list of lists containing the id and name of the message groups to be stopped.
-```
-{
-    "command": "/messaging/stop_message", 
-    "arguments": None, 
-    "data": [[message_group_id,"message_group_name"],[message_group_id,"message_group_name"],...]
-    }
-```
-
-Server will return:
-```
-{
-    "command": "/messaging/stop_message", 
-    "arguments": {
-        "status" : "OK/ERROR",
-        "active_message_groups" : [[message_group_id,"message_group_name"],[message_group_id,"message_group_name"],...]
-    }
-    "data": None
-    }
-```
-
-# Client Handlers
-## Display template Specific
-
-### Studio Display Scalable
-"/text/studio_name" : self.studio_name_handler,
-"/text/show_name" : self.show_name_handler,
-"/signal-lights/1" : self.indicator_handler,
-"/signal-lights/2" : self.indicator_handler,
-"/signal-lights/3" : self.indicator_handler,
-"/signal-lights/4" : self.indicator_handler,
-"/signal-lights/5" : self.indicator_handler,
-"/signal-lights/6" : self.indicator_handler,
-"/*/ticker" : self.ticker_handler
-
-### Fullscreen Clock Display
-"/text/studio_name" : self.studio_name_handler,
-"/*/ticker" : self.ticker_handler
-
 
 
 

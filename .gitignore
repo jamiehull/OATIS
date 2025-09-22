@@ -191,3 +191,4 @@ database/rds_db.old
 message_console/data/settings.json
 server/.DS_Store
 /test_tools
+.DS_Store
