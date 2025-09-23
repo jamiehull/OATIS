@@ -60,17 +60,17 @@ Currently the application has been designed to use the Arduino Uno R3 Microcontr
 
 Open Arduino IDE, navigate to Tools > Manage Libraries
 
-![Screenshot 2025-02-22 at 16 07 03](https://github.com/user-attachments/assets/8ba3c31c-c4d7-42f0-9012-6cce2492962d)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/8ba3c31c-c4d7-42f0-9012-6cce2492962d" />
 
 In the search box type "firmata express"
 
 Select version 1.2.0 and hit install, you will probably get a prompt asking if you want to install with dependencies, select yes!
 
-![Screenshot 2025-02-22 at 16 07 52](https://github.com/user-attachments/assets/9e6259f0-134b-4466-a463-0c6ea0af62b2)
+<img width="400" height="300" alt="logo" src="https://github.com/user-attachments/assets/9e6259f0-134b-4466-a463-0c6ea0af62b2" />
 
 Open Arduino IDE and navigate to File > Examples > FirmataExpress > FirmataExpress
 
-![Screenshot 2025-02-22 at 15 57 19](https://github.com/user-attachments/assets/1972e753-0c02-4332-9f9f-34424e9a43ed)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/1972e753-0c02-4332-9f9f-34424e9a43ed" />
 
 Upload the Sketch to your Board, your now ready to use the microcontroller with OATIS.
 
@@ -89,7 +89,7 @@ Select IP Settings.\
 Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
 A loopback IP address will also be shown which can be used for system testing if you want to run the client and server on the same machine.
 
-![image](https://github.com/user-attachments/assets/87002b37-bc96-4e45-bfc0-b50d218ab5e9)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/87002b37-bc96-4e45-bfc0-b50d218ab5e9" />
 
 Once selected hit save.
 
@@ -101,16 +101,16 @@ Enter a name for the controller.\
 If the controller is running on the same machine as the server - select local\
 If the controller is running on another machine - select remote (Not yet implemented - Will be in next release)
 
-![image](https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f" />
 
 Use the COM port dropdown to select the USB-Serial port to use to communicate with the Arduino
 
-![Screenshot 2025-02-22 at 17 21 56](https://github.com/user-attachments/assets/482cd7b9-3c1d-4942-b402-4ce0fb163967)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/482cd7b9-3c1d-4942-b402-4ce0fb163967" />
 
 Use the Controller type dropdown to select the Arduino Board you are using. At the moment there is only support for the Uno R3.\
 Under GPIO Configuration select the pins you are going to use as inputs and mark any unused pins as disabled.
 
-![image](https://github.com/user-attachments/assets/e4ac1af4-0a93-4158-ac67-5d155ead418f)
+<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/e4ac1af4-0a93-4158-ac67-5d155ead418f" />
 
 Once done, hit save.
 
@@ -185,6 +185,7 @@ If you don't set the IP address the server will default to the loopback address 
 If you change the server IP address when the server is running, you will need to restart the server for this to take affect.
 
 The server will report it's status at regular intervals, if everything is ok the terminal output should look similar to below:
+
 <img width="665" height="100" alt="Screenshot 2025-09-20 at 18 33 09" src="https://github.com/user-attachments/assets/2015ddc8-ed01-4b26-9be2-f7eed497ba38" />
 
 # Launching the Remote Client
@@ -197,7 +198,7 @@ If you need to change these in the future amend the settings file in /client/dat
 
 If the client has a successfull connection to the server, the small circular indicator in the bottom of the clockface will remain grey. If the server cannot be reached this will flash red.
 
-#Launching the Message Console
+# Launching the Message Console
 Launch the main_message_console.py script.\
 On first run it will default to the loopback address and will probably show Server Offline if the server is using a different IP.
 
