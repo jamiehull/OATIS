@@ -401,32 +401,40 @@ class Message_Console:
 
         #Only proceed if an item is selected
         if tree_id_list != ():
-            stop_group_list = []
-            for tree_id in tree_id_list:
-                id, name = self.column5_frame.get_item(tree_id)
-                stop_group_list.append([id, name])
+            try:
+                stop_group_list = []
+                for tree_id in tree_id_list:
+                    id, name = self.column5_frame.get_item(tree_id)
+                    stop_group_list.append([id, name])
 
-            #Build the Message and send
-            command = "/messaging/stop_message"
-            arguments = {"state" : False}
-            data = stop_group_list
-            message = self.network.build_tcp_message(command, arguments, data)
-            response_bytes = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
-            response = self.network.decode_data(response_bytes)
-            self.logger.debug(f"Response from server: {response}")
+                #Build the Message and send
+                command = "/messaging/stop_message"
+                arguments = {"state" : False}
+                data = stop_group_list
+                message = self.network.build_tcp_message(command, arguments, data)
+                response_bytes = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+                response = self.network.decode_data(response_bytes)
+                self.logger.debug(f"Response from server: {response}")
 
-            #Read the response
-            response_dict = json.loads(response)
+                #Read the response
+                response_dict = json.loads(response)
 
-            arguments = response_dict["arguments"]
-            status = arguments["status"]
-            active_message_groups = arguments["active_message_groups"]
+                arguments = response_dict["arguments"]
+                status = arguments["status"]
+                active_message_groups = arguments["active_message_groups"]
 
-            data = response_dict["data"]
+                data = response_dict["data"]
 
-            #If the response is ok, update the active messages column with active message groups
-            if status == "OK":
-                self.__update_active_messages_tree(active_message_groups)
+                #If the response is ok, update the active messages column with active message groups
+                if status == "OK":
+                    self.__update_active_messages_tree(active_message_groups)
+
+            except ConnectionRefusedError as e:
+                self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+                messagebox.showwarning("Unable to Send Message", f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+            except Exception as e:
+                self.logger.error(f"Cannot connect to server: {e}")
+                messagebox.showwarning("Unable to Send Message", f"Cannot connect to server: {e}")
 
         else:
             self.logger.warning("Unable to send stop message, nothing has been selected to stop!")
