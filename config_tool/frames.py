@@ -2296,8 +2296,9 @@ class Trigger_Config(BaseFrame):
         #The full osc address is the /trigger_group_name/trigger
         if id == None:
             trigger_group_name = self.trigger_group_name_var.get()
+            trigger_group_name_no_whitespace = trigger_group_name.replace(' ', '-')
             trigger = self.trigger_list[combobox_index]
-            osc_address = "/" + trigger_group_name + trigger
+            osc_address = "/" + trigger_group_name_no_whitespace + trigger
 
             #Assign value to the GPI / NET combobox
             #Update the combobox variable
