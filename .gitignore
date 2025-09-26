@@ -192,3 +192,4 @@ message_console/data/settings.json
 server/.DS_Store
 /test_tools
 .DS_Store
+client/data/settings.json
