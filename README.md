@@ -231,20 +231,13 @@ Hit the red arrow button.
 
 ## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
 
-#### Sending a message to one or more Message groups
-```
-/messaging/send_to_multiple => Args: ("ticker_text", "bg_colour_hex", [["message_group_id","message_group_name"],...])
-```
-#### Stopping a message to one or more Message groups
-```
-/messaging/stop_message => Args: ([["message_group_id","message_group_name"],...])
 ```
 #### Triggering a Signal Light on or off
 ```
 /{trigger_group_name}/signal-lights/{indicator_number} => Args: ("state")
 ```
-state = True => Signal Light On \
-state = False => Signal Light Off
+state = 1 => Signal Light On \
+state = 0 => Signal Light Off
 
 
 
