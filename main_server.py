@@ -85,8 +85,8 @@ class Main_Server:
 
     def __map_osc_handlers(self):
         self.osc_server.map_osc_handler('/*/signal-lights/*', self.router.handle_signal_light_osc_message)
-        self.osc_server.map_osc_handler('/messaging/send_to_multiple', self.router.handle_ticker_on_osc_message)
-        self.osc_server.map_osc_handler('/messaging/stop_message', self.router.handle_ticker_off_osc_message)
+        #self.osc_server.map_osc_handler('/messaging/send_to_multiple', self.router.handle_ticker_on_osc_message)
+        #self.osc_server.map_osc_handler('/messaging/stop_message', self.router.handle_ticker_off_osc_message)
 
     def __start_tcp_server_thread(self):
         #Start the TCP_Server on a seperate thread
