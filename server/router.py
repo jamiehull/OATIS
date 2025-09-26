@@ -22,7 +22,7 @@ class Router:
         try:
             #Store reference to the OSC_address and data arguments
             osc_address = address
-            data = args
+            data = args[0]
 
             #Connect to the database
             self.db.connect()
@@ -31,7 +31,7 @@ class Router:
             trigger_group_id_list = self.db.get_1column_data("trigger_group_id", "trigger_mappings", "gpi", osc_address)
 
             #If a valid trigger group has been found, proceed
-            if trigger_group_id_list != []:
+            if trigger_group_id_list != [] and (data == 0 or data == 1):
                 trigger_group_id = trigger_group_id_list[0]
                 self.logger.debug(f"OSC Address Targeting Trigger Group:{trigger_group_id}")
 
@@ -48,7 +48,7 @@ class Router:
                 self.forward_osc_message(device_list, client_osc, data)
 
             else:
-                self.logger.debug(f"Invalid OSC Address recieved: {osc_address}")
+                self.logger.debug(f"Invalid OSC Address or Data recieved, Address:{osc_address}, Data:{data}")
         
         except Exception as e:
             self.logger.error(f"Unable to handle Signal Light OSC message, reason: {e}")
