@@ -581,6 +581,9 @@ class GPIO_Config(BaseFrame):
         #Add the display widgets to the frame
         self.__add_widgets()
 
+        #Set default values in comboboxes
+        self.__set_combobox_defaults()
+
         #Refresh the tree view with the current database data so it's not empty on startup
         self.logger.info("Retrieving current gpio_config table data")
         updated_rows = self.db.get_current_table_data("controllers")
@@ -653,27 +656,13 @@ class GPIO_Config(BaseFrame):
         self.com_port_var.set("")
         self.controller_type_var.set("")
         self.controller_type_var.set("")
-        self.pin2_var.set("")
-        self.pin3_var.set("")
-        self.pin4_var.set("")
-        self.pin5_var.set("")
-        self.pin6_var.set("")
-        self.pin7_var.set("")
-        self.pin8_var.set("")
-        self.pin9_var.set("")
-        self.pin10_var.set("")
-        self.pin11_var.set("")
-        self.pin12_var.set("")
-        self.pin13_var.set("")
-        self.pin14_var.set("")
-        self.pin15_var.set("")
-        self.pin16_var.set("")
-        self.pin17_var.set("")
-        self.pin18_var.set("")
-        self.pin19_var.set("")
+        self.__set_combobox_defaults()
         #Show or hide the ip / com input fields
         self.show_hide_ip_com()
         self.logger.info("Cleared all entry Widgets")
+
+        #Refresh Combobox Options
+        self.refresh_cboxs("null_event")
     
     #Refreshes Treeviewer data
     def __update_tree(self, updated_rows):
@@ -973,8 +962,12 @@ class GPIO_Config(BaseFrame):
             port_string = str(port)
             #Split the string to extract the address
             port_address = port_string.split()[0]
-            #Add the address to the list
-            self.serial_ports_list.append(port_address)
+
+            #Check if the port is in use, if it is we don't add it to the list
+            query_result = self.db.get_1column_data("controller_port", "controllers", "controller_port", port_address)
+            if query_result == []:
+                #Add the address to the list
+                self.serial_ports_list.append(port_address)
 
         self.logger.info(f"Available serial ports:{self.serial_ports_list}")        
         #Assign the values to the combobox
@@ -1035,6 +1028,11 @@ class GPIO_Config(BaseFrame):
                 break
         self.logger.debug(f"Valid = {valid}")
         return valid
+    
+    def __set_combobox_defaults(self):
+        for combobox_var in self.pin_var_list:
+            combobox_var : StringVar
+            combobox_var.set("disabled")
 
 class Display_Templates(BaseFrame):
 
