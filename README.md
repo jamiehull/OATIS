@@ -49,6 +49,8 @@ Display Template - A template used to render a client display with the correct c
 Devices - A client display device.
 
 # Setup
+This version of OATIS is built to run on Python 3.11.8.
+
 ## Install the Dependencies in the requirements.txt file
 ```
 pip3 install -r requirements.txt
@@ -231,7 +233,6 @@ Hit the red arrow button.
 
 ## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
 
-```
 #### Triggering a Signal Light on or off
 ```
 /{trigger_group_name}/signal-lights/{indicator_number} => Args: ("state")
