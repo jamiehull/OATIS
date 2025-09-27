@@ -24,7 +24,7 @@ class Logo_Slate(Widget):
         self.title_scale_factor = 6
         
         #Default Text Size and font
-        self.title_text_size = int(self.display_height * self.title_scale_factor)
+        self.title_text_size = int(self.display_height / self.title_scale_factor)
         self.title_font = pygame.font.SysFont('arial', self.title_text_size)
         self.default_text_size = int(self.display_height * 0.1)
         self.defualt_font = pygame.font.SysFont('arial', self.default_text_size)
@@ -35,8 +35,9 @@ class Logo_Slate(Widget):
 
         #Open logo file and scale
         self.scaled_logo : pygame.Surface
+        self.logo_file_ok = False
         self.__scale_logo()
-        self.logo_file_ok = True
+        self.__convert_logo()
 
         #Variables to determine whether the slate is in vision
         self.active = False
@@ -61,38 +62,37 @@ class Logo_Slate(Widget):
             #Scale the logo to fit
             self.scaled_logo = pygame.transform.scale(logo, (logo_scaled_width, logo_scaled_height))
 
+            self.logo_file_ok = True
+
         except:
             self.logo_file_ok = False
+
+    def __convert_logo(self):
+        """Converts the logo image file and works out it's position, defaults to text if logo file not found"""
+        if self.logo_file_ok == True:
+            #Make a copy of the image in native surface pixel format for quicker load time
+            self.logo = self.scaled_logo.convert()
+
+            #Create a Rectangle object to contain the logo
+            self.logo_rect = self.logo.get_rect()
+
+            #Set the position of the center of the rectangle object
+            self.logo_rect.center = (self.display_width/2,self.display_height/2)
+
+        else:
+            # create a text surface object and a rectangular object for the text surface object
+            self.logo = self.title_font.render(self.logo_string, True, self.text_colour, self.bg_colour)
+            self.logo_rect = self.logo.get_rect()
+
+            #Set the position of the rectangular object.
+            self.logo_rect.center = (self.display_width/2,self.display_height/2)
 
     def __render_logo(self):
         if self.active == True:
             self.display_surface.fill(self.bg_colour)
 
-            if self.logo_file_ok == True:
-                #Make a copy of the image in native surface pixel format for quicker load time
-                self.logo_native = self.scaled_logo.convert()
-
-                #Create a Rectangle object to contain the logo
-                self.logo_native_rect = self.logo_native.get_rect()
-                #Set the position of the center of the rectangle object
-                self.logo_native_rect.center = (self.display_width/2,self.display_height/2)
-                #Copy the Logo image to the surface
-                self.display_surface.blit(self.logo_native, self.logo_native_rect)
-
-            else:
-                # create a text surface object and a rectangular object for the text surface object
-                self.logo_text = self.title_font.render(self.date_str, True, self.text_colour, self.bg_colour)
-                self.logo_text_rect = self.logo_text.get_rect()
-
-                #Get the text width
-                logo_text_width = self.logo_text.get_width()
-                logo_text_height = self.logo_text.get_height()
-
-                #Set the position of the rectangular object.
-                self.logo_text_rect.center = (self.display_width/2,self.display_height/2)
-
-                #Copy the text surface object to the display surface object at the center coordinate.
-                self.display_surface.blit(self.logo_text, self.logo_text_rect)
+            #Copy the text surface object to the display surface object at the center coordinate.
+            self.display_surface.blit(self.logo, self.logo_rect)
 
         else:
             self.display_surface.fill(self.transparent_colour)
@@ -151,7 +151,6 @@ class Identify_Slate(Widget):
                                         "Messaging Group:",
                                         "Trigger Group:",
                                         "Display Template:"]
-        device_info_data_list = []
 
     def __render_device_information(self):
         if self.active == True:

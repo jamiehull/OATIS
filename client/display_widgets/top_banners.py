@@ -45,7 +45,8 @@ class Ticker_Banner(Widget):
         #Add to render
         self.add_function_to_render(self.__scroll_ticker)
         
-    def set_ticker_text(self, text):
+    def set_ticker_text(self, text, bg_colour_rgb):
+        self.bg_colour = bg_colour_rgb
 
         #Set the ticker text string
         self.ticker_text_str = text
@@ -60,8 +61,9 @@ class Ticker_Banner(Widget):
         self.x = self.x_start
         self.y=self.display_height/2
 
-    def set_bg_colour(self, bg_colour_rgb):
-        self.bg_colour = bg_colour_rgb
+        # create a text surface object and a rectangular object for the text surface object
+        self.ticker_text = self.font.render(self.ticker_text_str, True, self.text_colour, self.bg_colour)
+        self.ticker_text_rect = self.ticker_text.get_rect()
 
     def __scroll_ticker(self):
         if self.ticker_enabled == True:
@@ -72,11 +74,7 @@ class Ticker_Banner(Widget):
             #Fill the screen with a color to wipe away anything from last frame
             self.display_surface.fill(self.bg_colour)
 
-            # create a text surface object and a rectangular object for the text surface object
-            self.ticker_text = self.font.render(self.ticker_text_str, True, self.text_colour, self.bg_colour)
-            self.ticker_text_rect = self.ticker_text.get_rect()
-
-            #Set the position of the rectangular object.
+            #Set the position of the rectangular text object.
             self.ticker_text_rect.center = (self.x, self.y)
 
             #Copy the text surface object to the display surface object at the center coordinate.
@@ -116,6 +114,9 @@ class Logo_Date_Location_Top_Banner:
         self.text_size = int(self.display_height*0.4)
         self.font = pygame.font.SysFont('arial', self.text_size)
 
+        #Currently rendered data string
+        self.current_date_str = ""
+
         #Create the background
         self.display_surface.fill(self.bg_colour)
 
@@ -132,7 +133,7 @@ class Logo_Date_Location_Top_Banner:
     #Update the Display
     def render(self):
         self.render_bg()
-        self.render_date()
+        self.__render_date()
         self.__render_logo()
         self.render_location()
 
@@ -161,7 +162,6 @@ class Logo_Date_Location_Top_Banner:
         #Scale the logo to fit
         self.scaled_logo = pygame.transform.scale(logo, (logo_scaled_width, logo_scaled_height))
 
-    def __render_logo(self):
         #Make a copy of the image in native surface pixel format for quicker load time
         self.logo_native = self.scaled_logo.convert()
 
@@ -169,16 +169,14 @@ class Logo_Date_Location_Top_Banner:
         self.logo_native_rect = self.logo_native.get_rect()
         #Set the position of the center of the rectangle object
         self.logo_native_rect.center = (self.display_width/2,self.display_height/2)
+
+    def __render_logo(self):
         #Copy the Logo image to the surface
         self.display_surface.blit(self.logo_native, self.logo_native_rect)
-        
 
-    def render_date(self):
-        self.date_str = strftime('%a %d %b %Y')
-        #self.year_str = strftime('%Y')
-
+    def __set_date(self):
         # create a text surface object and a rectangular object for the text surface object
-        self.date_text = self.font.render(self.date_str, True, self.text_colour, self.bg_colour)
+        self.date_text = self.font.render(self.current_date_str, True, self.text_colour, self.bg_colour)
         self.date_text_rect = self.date_text.get_rect()
 
         #Get the text width
@@ -187,11 +185,20 @@ class Logo_Date_Location_Top_Banner:
 
         #Set the position of the rectangular object.
         self.date_text_rect.center = (date_text_width/2, date_text_height/2)
+        
+    def __render_date(self):
+        date_str = strftime('%a %d %b %Y')
+        if self.current_date_str != date_str:
+            self.current_date_str = date_str
+            self.__set_date()
 
         #Copy the text surface object to the display surface object at the center coordinate.
         self.display_surface.blit(self.date_text, self.date_text_rect)
 
-    def render_location(self):
+    def set_location(self, location_string):
+        """Sets the location string variable."""
+        self.location_str = location_string
+
         # create a text surface object and a rectangular object for the text surface object
         self.location_text = self.font.render(self.location_str, True, self.text_colour, self.bg_colour)
         self.location_text_rect = self.location_text.get_rect()
@@ -203,12 +210,10 @@ class Logo_Date_Location_Top_Banner:
         #Set the position of the rectangular object.
         self.location_text_rect.center = (self.display_width-(location_text_width/2), location_text_height/2)
 
+    def render_location(self):
         #Copy the text surface object to the display surface object at the center coordinate.
         self.display_surface.blit(self.location_text, self.location_text_rect)
 
-    def set_location(self, location_string):
-        """Sets the location string variable."""
-        self.location_str = location_string
 
         
 

@@ -72,7 +72,7 @@ class Window:
         self.blit_dict = {}
 
         #Create the Main Display Window Surface
-        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.NOFRAME | pygame.SCALED | pygame.FULLSCREEN)
+        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.NOFRAME | pygame.SCALED | pygame.FULLSCREEN | pygame.DOUBLEBUF)
 
         #Find the centre of the display
         self.horizontal_center = self.display_surface.get_width() / 2
@@ -110,6 +110,9 @@ class Window:
         #State variables to signal to functions state of program
         self.running = True #Signals if app is running
         self.reloading_display = False  #Signals if we are re-rendering the display
+
+        #Used for measuring FPS
+        self.fps_time = 10000
 
 #--------------------------------Py-Game-Logic--------------------------------------------
     #Start the App
@@ -158,6 +161,9 @@ class Window:
 
             #limits FPS
             self.clock.tick(50)
+
+            #Measure FPS
+            self.__measure_fps()
 
     #Quits Pygame Modules
     def on_cleanup(self):
@@ -403,6 +409,12 @@ class Window:
             self.build_layout_custom(layout_matrix, True, True)
             self.add_widget_to_surface(clock_type, 0)
 
+    def __measure_fps(self):
+        """Report the FPS to terminal every 10 seconds."""
+        current_time = pygame.time.get_ticks()
+        if current_time > self.fps_time:
+            self.logger.debug(f"FPS:{self.clock.get_fps()}")
+            self.fps_time = current_time + 10000
 
 #----------------------------------Module Specific Code---------------------------------
 
@@ -677,8 +689,7 @@ class Window:
             bg_colour_rgb = ImageColor.getcolor(bg_colour_hex, "RGB")
 
             self.logger.debug("Ticker On")
-            ticker_widget.set_ticker_text(text)
-            ticker_widget.set_bg_colour(bg_colour_rgb)
+            ticker_widget.set_ticker_text(text, bg_colour_rgb)
             ticker_widget.ticker_on()
             
         else:
