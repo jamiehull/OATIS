@@ -26,7 +26,10 @@ class Launcher:
                 self.start_app()
                 
             #If a valid settigns file exists and it's not first run, boot as normal
+            elif settings_dict["first_run"] == False:
+                self.start_app()
             else:
+                self.ip_config()
                 self.start_app()
 
         #If the settings file does not exist make a new one and start app
@@ -56,7 +59,8 @@ class Launcher:
         while valid == False:
             self.server_ip = input()
             valid = validate_ip(self.server_ip)
-            print(f"Server IP Invalid, please re-enter:")
+            if valid == False:
+                print(f"Server IP Invalid, please re-enter:")
 
         #Add all values to the dict
         self.settings_dict["client_ip"] = self.client_ip
