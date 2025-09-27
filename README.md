@@ -231,7 +231,6 @@ Hit the red arrow button.
 
 ## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
 
-```
 #### Triggering a Signal Light on or off
 ```
 /{trigger_group_name}/signal-lights/{indicator_number} => Args: ("state")
