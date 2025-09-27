@@ -49,6 +49,8 @@ Display Template - A template used to render a client display with the correct c
 Devices - A client display device.
 
 # Setup
+This version of OATIS is built to run on Python 3.11.8.
+
 ## Install the Dependencies in the requirements.txt file
 ```
 pip3 install -r requirements.txt
