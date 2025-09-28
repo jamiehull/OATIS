@@ -70,7 +70,7 @@ class Ticker_Banner(Widget):
             if self.x < self.x_end:
                 self.x = self.x_start
             else:
-                self.x -= 1
+                self.x -= 2
             #Fill the screen with a color to wipe away anything from last frame
             self.display_surface.fill(self.bg_colour)
 
@@ -129,6 +129,9 @@ class Logo_Date_Location_Top_Banner:
         #Set the logo image
         self.scaled_logo : pygame.Surface
         self.set_logo()
+
+        #Set the location
+        self.set_location(self.location_str)
 
     #Update the Display
     def render(self):

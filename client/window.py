@@ -142,9 +142,6 @@ class Window:
     #Update the Display
     def on_render(self):
         with self.blit_dict_lock:
-            #Fill the screen with a color to wipe away anything from last frame
-            self.display_surface.fill(self.bg_colour)
-
             #Render each display surface onto the main surface
             for display_section_id in self.blit_dict:
                 display_section : Display_Section = self.blit_dict[display_section_id]
@@ -160,7 +157,7 @@ class Window:
             pygame.display.flip()
 
             #limits FPS
-            self.clock.tick(50)
+            self.clock.tick(25)
 
             #Measure FPS
             self.__measure_fps()
