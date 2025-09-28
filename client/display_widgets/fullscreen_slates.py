@@ -151,6 +151,9 @@ class Identify_Slate(Widget):
                                         "Messaging Group:",
                                         "Trigger Group:",
                                         "Display Template:"]
+        
+        #Default data list - used when the device config cannot be retrieved
+        self.device_info_data_list = [None, None, None, None, None, None]
 
     def __render_device_information(self):
         if self.active == True:
