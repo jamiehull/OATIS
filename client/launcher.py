@@ -19,26 +19,28 @@ class Launcher:
         #Try and read the settings file
         try:
             settings_dict : dict = open_json_file(self.settings_path)
+            if settings_dict == False:
+                logger.warning("No settings file, entering setup script...")
+                self.ip_config()
+                self.start_app()
+
+            #If its the first run, setup the ip settings
+            elif settings_dict["first_run"] == True:
+                self.ip_config()
+                self.start_app()
+                    
+            #If a valid settings file exists and it's not first run, boot as normal
+            elif settings_dict["first_run"] == False:
+                self.start_app()
+
+            else:
+                self.ip_config()
+                self.start_app()
 
         #If the settings file does not exist make a new one and start app
         except Exception as e:
             logger.error(f"Unable to open settings file: {e}")
             self.ip_config()
-
-
-        #If its the first run, setup the ip settings
-        if settings_dict["first_run"] == True:
-            self.ip_config()
-                
-        #If a valid settigns file exists and it's not first run, boot as normal
-        elif settings_dict["first_run"] == False:
-            self.start_app()
-
-        else:
-            self.ip_config()
-            self.start_app()
-
-        
 
     def ip_config(self):
         """Creates the settings file."""
