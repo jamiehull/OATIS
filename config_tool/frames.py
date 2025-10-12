@@ -1095,6 +1095,7 @@ class Display_Templates(BaseFrame):
             self.template_id_var.set(row[0][0])
             self.template_name_var.set(row[0][1])
             self.layout_var.set(row[0][2])
+            self.change_number_indicators_state(row[0][2])
 
             logo_id = row[0][3]
             #Retrieve logo name from the database
@@ -1127,8 +1128,7 @@ class Display_Templates(BaseFrame):
         self.layout_var.set("")
         self.logo_var.set("")
         self.clock_var.set("")
-        self.indicator_number_var.set("6")
-        self.show_hide_indicators("6")
+        self.change_number_indicators_state("")
         self.indicator_1.clear_inputs()
         self.indicator_2.clear_inputs()
         self.indicator_3.clear_inputs()
@@ -1294,7 +1294,7 @@ class Display_Templates(BaseFrame):
         layout_label = ctk.CTkLabel(master=self.display_setup_frame, text="Display Layout:", font=self.default_font)
         layout_label.grid(column=0, row=3, sticky="w", padx=20)
 
-        layout_cbox = ctk.CTkComboBox(master=self.display_setup_frame, state="readonly", variable=self.layout_var, values=["Clock With Indicators", "Fullscreen Clock"], font=self.default_font, dropdown_font=self.default_font)
+        layout_cbox = ctk.CTkComboBox(master=self.display_setup_frame, state="readonly", variable=self.layout_var, values=["Clock With Indicators", "Fullscreen Clock"],  command=lambda value:self.change_number_indicators_state(value), font=self.default_font, dropdown_font=self.default_font)
         layout_cbox.grid(column=1, row=3, columnspan =2, sticky="ew", padx=20)
 
         #Logo
@@ -1308,14 +1308,14 @@ class Display_Templates(BaseFrame):
         clock_type_label = ctk.CTkLabel(master=self.display_setup_frame, text="Clock Type:", font=self.default_font)
         clock_type_label.grid(column=0, row=5, sticky="w", padx=20)
 
-        clock_type_cbox = ctk.CTkComboBox(master=self.display_setup_frame, variable=self.clock_var, values=["Leitch Clock", "Analogue Clock"], font=self.default_font, dropdown_font=self.default_font)
+        clock_type_cbox = ctk.CTkComboBox(master=self.display_setup_frame, variable=self.clock_var, values=["Leitch Clock", "Analogue Clock"], font=self.default_font, dropdown_font=self.default_font, state="readonly")
         clock_type_cbox.grid(column=1, row=5, columnspan =2, sticky="ew", padx=20)
         #Select Number of Indicators
         number_indicators_label = ctk.CTkLabel(master=self.display_setup_frame, text="Select Number Of Indicators to Display:", font=self.default_font)
         number_indicators_label.grid(column=0, row=6, sticky="w", padx=20)
 
-        number_indicators_cbox = ctk.CTkComboBox(master=self.display_setup_frame, values=["1","2","3","4","5","6"], variable=self.indicator_number_var, command=lambda value:self.show_hide_indicators(value), font=self.default_font, dropdown_font=self.default_font)
-        number_indicators_cbox.grid(column=1, row=6, columnspan =2, sticky="ew", padx=20)
+        self.number_indicators_cbox = ctk.CTkComboBox(master=self.display_setup_frame, values=["1","2","3","4","5","6"], variable=self.indicator_number_var, command=lambda value:self.show_hide_indicators(value), font=self.default_font, dropdown_font=self.default_font, state="readonly")
+        self.number_indicators_cbox.grid(column=1, row=6, columnspan =2, sticky="ew", padx=20)
 
         #Indicators
         #Enable/ Disable - Flashing / Non-Flashing - Label - On Colour
@@ -1345,18 +1345,37 @@ class Display_Templates(BaseFrame):
         self.logo_var.set(path)
 
     def show_hide_indicators(self, number_of_indicators:str):
+        """Displays the indicator settings for the number of indicators selected."""
         indicator_list = [self.indicator_1, self.indicator_2, self.indicator_3, self.indicator_4, self.indicator_5, self.indicator_6]
 
         for indicator in indicator_list:
             indicator.clear_inputs()
             indicator.grid_forget()
             
+
         for i in range(int(number_of_indicators)):
             indicator_list[i].grid(column=0, row=(i+10), columnspan =3, sticky="nsew", padx=20)
             #Added to fix bug where indicator dropdowns populated blank until hovered with mouse
             self.update()
 
-
+    def change_number_indicators_state(self, display_layout:str):
+        """Changes values of the Number of indicators combobox based on selected dsiplay layout."""
+        if display_layout == "Fullscreen Clock":
+            #Set number of indicators to display = 0
+            self.indicator_number_var.set("0")
+            #Clear the values
+            self.number_indicators_cbox.configure(values=[])
+            #Clear Indicator setttings
+            self.show_hide_indicators("0")
+            
+        else:
+            #Set number of indicators to display = 0
+            self.indicator_number_var.set("")
+            #Clear the values
+            self.number_indicators_cbox.configure(values=["1","2","3","4","5","6"])
+            #Clear Indicator setttings
+            self.show_hide_indicators("0")
+            
     def convert_to_blob(self, path:str):
         #Open the image file and convert to binary data
         binary_logo = open(path, "rb")
@@ -1608,19 +1627,19 @@ class Server_Config(BaseFrame):
     def __add_widgets(self):
         #------------------------------MAIN FRAME WIDGETS--------------------------------------------------
         #Tree Viewer to display all devices in a nested format
-        tree = CustomTree(self)
-        tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
+        #tree = CustomTree(self)
+        #tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
 
-        add_btn = ctk.CTkButton(self, text="Add Group", fg_color="green", font=self.default_font)
-        add_btn.grid(column=0, row=1, sticky="nsew")
+        #add_btn = ctk.CTkButton(self, text="Add Group", fg_color="green", font=self.default_font)
+        #add_btn.grid(column=0, row=1, sticky="nsew")
 
-        del_btn = ctk.CTkButton(self, text="Remove Group", fg_color="red", font=self.default_font)
-        del_btn.grid(column=0, row=2, sticky="nsew")
+        #del_btn = ctk.CTkButton(self, text="Remove Group", fg_color="red", font=self.default_font)
+        #del_btn.grid(column=0, row=2, sticky="nsew")
 
         #------------------------------MAIN FRAME-IP CONFIG FRAME--------------------------------------------------
         #Create a frame to contain settings server ip
         self.ip_setup_frame = ctk.CTkFrame(self, border_color="green", border_width=1)
-        self.ip_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+        self.ip_setup_frame.grid(column=0, row=0, columnspan=4, sticky="nsew")
 
         #Setup Columns / rows for self.ip_setup_frame
 
@@ -1635,7 +1654,7 @@ class Server_Config(BaseFrame):
         
         #Create a frame to contain settings about the individual client device
         self.server_config_frame = ctk.CTkFrame(self, border_color="green", border_width=1)
-        self.server_config_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+        self.server_config_frame.grid(column=0, row=0, columnspan=4, sticky="nsew")
 
         #Setup Columns / rows for self.server_config_frame
 
@@ -1650,7 +1669,7 @@ class Server_Config(BaseFrame):
 
         #------------------------------IP CONFIG FRAME WIDGETS--------------------------------------------------
         ip_config_title_label = ctk.CTkLabel(master=self.ip_setup_frame, text="Server IP Configuration", font=self.default_font)
-        ip_config_title_label.grid(column=0, row=0, columnspan=3, sticky="ew")
+        ip_config_title_label.grid(column=0, row=0, columnspan=3, sticky="")
 
         ip_label = ctk.CTkLabel(master=self.ip_setup_frame, text="Server IP", font=self.default_font)
         ip_label.grid(column=0, row=1, sticky="w", padx=20)
@@ -1666,7 +1685,7 @@ class Server_Config(BaseFrame):
 
         #------------------------------SERVER CONFIG FRAME WIDGETS--------------------------------------------------
         title1_label = ctk.CTkLabel(master=self.server_config_frame, text="Server Configuration", font=self.default_font)
-        title1_label.grid(column=0, row=0, columnspan=3, sticky="ew")
+        title1_label.grid(column=0, row=0, columnspan=3, sticky="")
 
         initialise_label = ctk.CTkLabel(master=self.server_config_frame, text="Initialise Database", font=self.default_font)
         initialise_label.grid(column=0, row=1, sticky="w", padx=20)
@@ -1729,19 +1748,24 @@ class Server_Config(BaseFrame):
                 self.db.close_connection()
                 #Get the path to the backup file from the user
                 path = filedialog.askopenfilename()
-                self.logger.info(path)
-                #Rename to current db file name.old
-                self.logger.info("Renaming current database rds_db.old")
-                os.rename("database/rds_db", "database/rds_db.old")
-                #Copy the file specified by the user into the current working dir and rename rds_db
-                self.logger.info("Importing backup db and renaming rds_db")
-                shutil.copy(path, "./database/rds_db")
-                #Reconect to the database
-                self.db.connect()
-                messagebox.showinfo("Restore Database Backup", "Database Successfully Restored, please restart the application.")
+                if path != "":
+                    self.logger.info(path)
+                    #Rename to current db file name.old
+                    self.logger.info("Renaming current database rds_db.old")
+                    os.rename("database/rds_db", "database/rds_db.old")
+                    #Copy the file specified by the user into the current working dir and rename rds_db
+                    self.logger.info("Importing backup db and renaming rds_db")
+                    shutil.copy(path, "./database/rds_db")
+                    
+                    messagebox.showinfo("Restore Database Backup", "Database Successfully Restored, please restart the application.")
             except Exception as e:
                 self.logger.info("Restore Unsuccessful")
-            messagebox.showinfo("Database Restore Fail", "The database was not able to be restored, reason:{e}")
+                messagebox.showinfo("Database Restore Fail", f"The database was not able to be restored, reason:{e}")
+            finally:
+                #Reconect to the database
+                self.db.connect()
+
+
         else:
             self.logger.debug("User aborted database restore.")
             
