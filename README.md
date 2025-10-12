@@ -56,6 +56,11 @@ This version of OATIS is built to run on Python 3.11.8.
 pip3 install -r requirements.txt
 ```
 
+## Install SQlite
+```
+sudo apt-get install sqlite3
+```
+
 ## Microcontroller Setup 
 If you are using Physical GPI's the Arduino needs to be flashed with the Firmata code to enable communication via serial with OATIS. See below for steps how to do this.\
 Currently the application has been designed to use the Arduino Uno R3 Microcontroller for GPI's using the Firmata protocol to notify the application of GPI state changes.
