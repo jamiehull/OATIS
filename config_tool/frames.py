@@ -1716,6 +1716,8 @@ class Server_Config(BaseFrame):
         if answer == True:
             self.logger.info("User confirmed database is to be initialised!")
             self.db.initialise_database()
+            messagebox.showinfo("Database Initialised", "The database has been initialised, please re-launch config tool.")
+            quit()
         else:
             self.logger.info("User aborted Database Initialisation")
 
@@ -1758,6 +1760,7 @@ class Server_Config(BaseFrame):
                     shutil.copy(path, "./database/rds_db")
                     
                     messagebox.showinfo("Restore Database Backup", "Database Successfully Restored, please restart the application.")
+                    quit()
             except Exception as e:
                 self.logger.info("Restore Unsuccessful")
                 messagebox.showinfo("Database Restore Fail", f"The database was not able to be restored, reason:{e}")
