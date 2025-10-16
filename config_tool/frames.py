@@ -1308,7 +1308,7 @@ class Display_Templates(BaseFrame):
         clock_type_label = ctk.CTkLabel(master=self.display_setup_frame, text="Clock Type:", font=self.default_font)
         clock_type_label.grid(column=0, row=5, sticky="w", padx=20)
 
-        clock_type_cbox = ctk.CTkComboBox(master=self.display_setup_frame, variable=self.clock_var, values=["Leitch Clock", "Analogue Clock"], font=self.default_font, dropdown_font=self.default_font, state="readonly")
+        clock_type_cbox = ctk.CTkComboBox(master=self.display_setup_frame, variable=self.clock_var, values=["Studio Clock", "Analogue Clock"], font=self.default_font, dropdown_font=self.default_font, state="readonly")
         clock_type_cbox.grid(column=1, row=5, columnspan =2, sticky="ew", padx=20)
         #Select Number of Indicators
         number_indicators_label = ctk.CTkLabel(master=self.display_setup_frame, text="Select Number Of Indicators to Display:", font=self.default_font)

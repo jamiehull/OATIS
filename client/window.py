@@ -152,7 +152,6 @@ class Window:
                 widget : Widget = self.widget_dict[display_section_id]
                 widget.render()
 
-
             #flip() the display to put your work on screen
             pygame.display.flip()
 
@@ -165,6 +164,7 @@ class Window:
     #Quits Pygame Modules
     def on_cleanup(self):
         pygame.quit()
+
 #--------------------------------------------------------------------------------------- 
 
 #--------------------------------Display-rendering-Logic--------------------------------------------
@@ -341,7 +341,7 @@ class Window:
 
     def add_widget_to_surface(self, widget, surface_id, **args):
         """Adds a widget to a surface, optional args for widget configuration"""
-        if widget == "Leitch Clock":
+        if widget == "Studio Clock":
             clock = Studio_Clock(self.blit_dict[surface_id].surface)
             self.__add_widget_to_render(surface_id, clock)
         if widget == "Analogue Clock":
