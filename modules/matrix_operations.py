@@ -1,4 +1,4 @@
-def find_display_sections(self, layout_matrix):
+def find_display_sections(layout_matrix):
         """Finds the display secions in the layout matrix and their top_left_coordinate, returning a dict.
         Keys are display section id's, values are the top_left_coordinate as a tuple."""
         #Working Dict storing section id's and their top left coordinate
@@ -19,7 +19,7 @@ def find_display_sections(self, layout_matrix):
 
         return display_section_id_dict
 
-def find_display_section_dimensions(self, layoput_matrix:list, display_section_id:int, top_left_coord:tuple, total_columns:int, total_rows:int):
+def find_display_section_dimensions(layoput_matrix:list, display_section_id:int, top_left_coord:tuple, total_columns:int, total_rows:int):
         """Finds the dimension of a display section"""
         width=0
         height=0
