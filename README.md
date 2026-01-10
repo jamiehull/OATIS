@@ -33,7 +33,6 @@ Designed to operate in a server-client model, multiple displays can be centrally
 - Message console application for sending messages to clients.
   
 <img width="1920" height="1080" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
-<img width="1920" height="1080" alt="Message Console" src="https://github.com/user-attachments/assets/5b0f7757-2cda-49ff-b7be-2ad6e8e895cb" />
 
 ### Remote management of Display Devices:
 - Device Display settings can be changed remotley using the configuration tool.
@@ -174,19 +173,30 @@ Each section must contain a widget.
 
 Once done hit save.
 
+## Creating a Display Instance
+Head to the Display Instances tab.\
+Click Add.\
+Give the Display Instance a Name.\
+Select which Display Template you want to use.\
+The selected Display Template should render in the preview window.\
+Click on each Widget to Configure.
+
+<img width="1432" height="595" alt="Screenshot 2026-01-10 at 14 44 52" src="https://github.com/user-attachments/assets/658dc992-aad0-41c7-9292-092e9fe093d1" />
+
 ## Adding a Client Display Device
 
 Click on the Device Config tab.\
+Click Add.\
 Name the device.\
 Set it's IP address.\
 Set it's location, this is used for logical grouping.\
-Select the Messaging and Trigger Group from the dropdown.\
-Select the Display Template from the dropdown.\
+Assign a Message Group.\
+Assign a Display Template.\
 Hit save.
 
-When a client has been added three buttons will be available below the device settings allowing the user to reload the display template if changes are made, and identify the device.
+<img width="1680" height="408" alt="Screenshot 2026-01-10 at 14 47 52" src="https://github.com/user-attachments/assets/1bbcba7a-5674-4e11-b96a-965c7f4ae8c1" />
 
-<img width="1280" height="800" alt="Screenshot 2025-09-19 at 23 38 14" src="https://github.com/user-attachments/assets/9d45b9a0-8c8f-405b-b1f7-f4a6401df074" />
+When a client has been added three buttons will be enabled below the device settings allowing the user to reload the display template if changes are made, and identify the device.
 
 # Launching the Server
 Launch the server using the main_server.py script.\
