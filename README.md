@@ -4,49 +4,54 @@
 
 ## Overview
 
-OATIS is a tally indicator system for use in Radio and TV that is platform agnostic, designed to run on Mac OSX and Linux, support is not gauranteed for Windows as it has not currently been tested (I don't own a Windows PC...).
+OATIS is a tally indicator system for use in Radio and TV that is platform agnostic, designed to run on Linux and Mac OSX, support is not gauranteed for Windows, as it has not currently been tested (I don't own a Windows PC...).
 
 Designed to operate in a server-client model, multiple displays can be centrally managed using a lightweight server application and configuration tool.
 
-Tally's can be triggered either from Physical GPI's or via OSC commands.
-
 ## Features
+### Physical and Network triggers:
+- Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 54 inputs / outputs.
+- Multiple Arduinos can be connected to the server, giving scope for increased I/O if needed.
+- Support for network input and output triggers using the OSC Protocol, both UDP and TCP.
+- Inputs can be linked to display indicator lamps to show the state of the input trigger.
+
+###Logic
+- Group Physical and Network inputs into a Logical Input using conditions: AND, NAND, OR, NOR.
+- Use a single Logical Output to trigger multiple physical or network outputs.
+  
 ### Customizable displays:
-- Configure the number of indicators to display(currently up to 6), their colour and text. (More indicators will be available in the next release)
-- Customizable logos.
-- Choose between Analogue and Studio Style Clocks.
-- Choice of a variety of display layouts.
-<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/d8e9900e-d576-4c17-9b3d-c7b6fee38491" />
-<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/2a8b6503-20bd-499d-9b97-fbee920f59d6" />
-<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/6a45b3d0-873c-40bb-bb42-ab1a3d11b12a" />
-<img width="1920" height="1080" alt="Layout" src="https://github.com/user-attachments/assets/1312290b-82ff-4588-9428-3f1b35e401c9" />
+- Display Builder allows custom displays to be built and applied to multiple clients.
+- Currently available display widgets: Studio Clock, Analogue Clock, Indicator Lamp, Date-Logo-Location Top-Banner (more to be added in the future, suggestions are welcomed!)
+- Multiple clocks can be displayed at once with the option to change the timezone depending on location.
+- Sync your client device via NTP for accurate time.
+- Add your Own Logo to client displays.
 
 ### Messaging:
 - Client displays can be used to show short messages by way of a scrolling ticker at the top of the screen.
 - The background colour of each message can be chosen by the user.
-- Clients are segregated into logical Messaging groups for sending messages to a group of clients.
+- Clients are segregated into Logical Messaging groups for sending messages to a group of clients.
 - Message console application for sending messages to clients.
   
 <img width="1920" height="1080" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
 <img width="1920" height="1080" alt="Message Console" src="https://github.com/user-attachments/assets/5b0f7757-2cda-49ff-b7be-2ad6e8e895cb" />
 
-### Physical and Network triggers:
-- Support for physical GPI's using the Arduino Uno R3 - (Arduino Mega support to be added in next release)
-- Support for network triggers using the OSC Protocol
-  
 ### Remote management of Display Devices:
-- Device settings can be changed remotley using the configuration tool
-- Display customizations can be sent to the device for rendering
-- Devices can be idented using the configuration tool, bringing up a device information screen showing the clients configuration.
-<img width="1920" height="1080" alt="Identify Screen" src="https://github.com/user-attachments/assets/13749a5b-f4fc-4f19-9ea2-eda29f7db0d4" />
+- Device Display settings can be changed remotley using the configuration tool.
+- Display templates, image files and config are sent to client devices over the network.
+- Devices can be identified using the configuration tool, bringing up a device information screen showing the clients configuration and IP information.
 
-## Terminology
-
-Controllers - Physical GPIO Controllers used for inputs / outputs.\
-Trigger Group - A logical group of OSC Network Triggers and Physical Controller triggers used to change the state of client widgets.\
-Message Group - A logical group of devices messages can be sent to.\
-Display Template - A template used to render a client display with the correct colours, labels and layout.\
-Devices - A client display device.
+## OATIS Configuration Tool Tabs
+- Image Store - Used for uploading images to the database to be diaplayed on client devices.
+- Device Config - Used for adding a client device to the system, assiging a Message Group and Display Instance.
+- GPIO Config - Used for configuring Arduino Microcontrollers, their COM port and pin configuration.
+- Input Triggers - Configuration of Physical and Network Inputs.
+- Input Logics - Provide a method of grouping multiple Physical and Network Input Triggers using the logic functions: AND, NAND, OR, NOR.
+- Output Logics - Provide a method of grouping multiple Physical and Network Output Triggers, providing the capability to trigger multiple outputs from a single input.
+- Output Triggers - Configuration of Physical and Netowrk Outputs.
+- Display Templates - A tool for building client display layouts. 
+- Display Instances - Provides a method of configuring a Display Template for use on a client device.
+- Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.\
+- Server Config - Used for initialising the Database, Backup and Restore of configuration and setting the IP Address of the Server.
 
 # Setup
 This version of OATIS is built to run on Python 3.11.8.
