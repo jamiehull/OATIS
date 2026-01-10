@@ -15,7 +15,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
 - Support for network input and output triggers using the OSC Protocol, both UDP and TCP.
 - Inputs can be linked to display indicator lamps to show the state of the input trigger.
 
-###Logic
+### Logic
 - Group Physical and Network inputs into a Logical Input using conditions: AND, NAND, OR, NOR.
 - Use a single Logical Output to trigger multiple physical or network outputs.
   
@@ -50,7 +50,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
 - Output Triggers - Configuration of Physical and Netowrk Outputs.
 - Display Templates - A tool for building client display layouts. 
 - Display Instances - Provides a method of configuring a Display Template for use on a client device.
-- Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.\
+- Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.
 - Server Config - Used for initialising the Database, Backup and Restore of configuration and setting the IP Address of the Server.
 
 # Setup
@@ -68,7 +68,8 @@ sudo apt-get install sqlite3
 
 ## Microcontroller Setup 
 If you are using Physical GPI's the Arduino needs to be flashed with the Firmata code to enable communication via serial with OATIS. See below for steps how to do this.\
-Currently the application has been designed to use the Arduino Uno R3 Microcontroller for GPI's using the Firmata protocol to notify the application of GPI state changes.
+The Firmata protocol is used to communicate between OASTIS and the Arduino.
+Arduino R3 and Arduino Mega are supported only.
 
 Open Arduino IDE, navigate to Tools > Manage Libraries
 
@@ -87,12 +88,16 @@ Open Arduino IDE and navigate to File > Examples > FirmataExpress > FirmataExpre
 Upload the Sketch to your Board, your now ready to use the microcontroller with OATIS.
 
 ## Build the Database - It's not as scrary as it sounds...I promise!
-OATIS will not run without a valid database file. The database needs to be built using the config tool.\
+OATIS will complain if it does not find a valid database file. The database needs to be built using the config tool.
+
+<img width="289" height="94" alt="Screenshot 2026-01-10 at 07 43 19" src="https://github.com/user-attachments/assets/3ee88b5d-1541-4304-8e15-7c23954a131d" />
+
 Launch the Config tool using the main_config_tool.py script.\
 A prompt will show on the first run as below, select yes. The required tables and default data the application needs to run will be built and added.
-Config tool will then continue to boot.
 
 <img width="261" height="250" alt="Screenshot 2025-09-22 at 21 47 50" src="https://github.com/user-attachments/assets/d1a48e9a-f813-4b85-81fc-4c1fc8a269cd" />
+
+Config tool will then continue to launch.
 
 ## Set Server IP Address
 
@@ -101,7 +106,7 @@ Select IP Settings.\
 Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
 A loopback IP address will also be shown which can be used for system testing if you want to run the client and server on the same machine.
 
-<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/87002b37-bc96-4e45-bfc0-b50d218ab5e9" />
+<img width="1680" height="193" alt="Screenshot 2026-01-10 at 07 48 25" src="https://github.com/user-attachments/assets/b28305dd-93c0-4a5c-8888-f63f045c10c0" />
 
 Once selected hit save.
 
@@ -110,71 +115,64 @@ Once selected hit save.
 Navigate to the GPIO Config tab.\
 Hit Add Controller.\
 Enter a name for the controller.\
-If the controller is running on the same machine as the server - select local\
-If the controller is running on another machine - select remote (Not yet implemented - Will be in next release)
+Enter the loation the controller, e.g. equipment room.\
+Select which type of Arduino you are using.\
+Use the COM port dropdown to select the USB-Serial port to use to communicate with the Arduino.
 
-<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/a6e568bf-65eb-4089-bae5-73bbf46de76f" />
+<img width="1370" height="214" alt="Screenshot 2026-01-10 at 07 54 54" src="https://github.com/user-attachments/assets/72b247ee-ac6a-4e34-a4ae-1ebf1627876b" />
 
-Use the COM port dropdown to select the USB-Serial port to use to communicate with the Arduino
+Once the type of Arduino has been selected, the Pin Mode Configuration should load.\
+Here you can specify which Arduino pins to use as Inputs, Outputs or Disable.
 
-<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/482cd7b9-3c1d-4942-b402-4ce0fb163967" />
-
-Use the Controller type dropdown to select the Arduino Board you are using. At the moment there is only support for the Uno R3.\
-Under GPIO Configuration select the pins you are going to use as inputs and mark any unused pins as disabled.
-
-<img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/e4ac1af4-0a93-4158-ac67-5d155ead418f" />
+<img width="629" height="500" alt="Screenshot 2026-01-10 at 07 58 02" src="https://github.com/user-attachments/assets/a0bfaa35-a8c1-45b7-9d2d-b6bf404f44d5" />
 
 Once done, hit save.
 
-PLEASE NOTE: Any changes to the COM Port, or Pin configuration will require a server restart for these changes to take effect.\
-Controller config is uploaded to the Arduino on Server boot.
-
-## Creating Trigger Groups
-Trigger Groups are used to group physical and logical triggers to target indicator lights.\
-Trigger Types:
-- Controller: A Physical GPI on a microcontroller
-- Network: An inbound OSC Message
-
-Go to the Trigger Groups Tab\
-Set a name for the Trigger Group.\
-For each indicator choose the controller that will be the source trigger.\
-If the network controller is selected, an OSC address for triggering that indicator will automatically populate.\
-If a physical controller is selected select the source GPI.\
-If you are not planning on using all the indicators leave these set to Network.
-
-<img width="949" height="725" alt="Screenshot 2025-09-19 at 08 21 30" src="https://github.com/user-attachments/assets/f1cd32c7-2c61-4beb-9c46-d3f5b8bc1695" />
+PLEASE NOTE: Any changes to the Port, or Pin configuration will require a server restart to push the latest configuration to the Arduino.
 
 ## Creating Message Groups
-Message groups are used to logically group displays when sending messages to them.\
+Message groups are used to logically group client devices when sending messages to them.\
 Go to the Messaging Groups tab, enter a name for your message group and hit save.
 
-<img width="1280" height="201" alt="Screenshot 2025-09-19 at 08 29 43" src="https://github.com/user-attachments/assets/07837c0f-6f9e-4d6c-89f5-a000b18c9b93" />
+<img width="1680" height="156" alt="Screenshot 2026-01-10 at 08 06 03" src="https://github.com/user-attachments/assets/c12e4d73-35ac-40dd-bbf7-fd9316842941" />
 
 ## Adding logos to the database
 Logos should have an aspect ratio of 30:9 to avoid scaling issues, e.g. 300 x 90 or 600x180, add an appropriatley sized logo depending on your intended display resolution.\
 Images must be in PNG format.\
 To add a logo image head to the Image Store tab.\
-Click add image then click select an image file.\
+Click Add then click select an image file.\
+Select your image file using the file browser.\
 Once the preview is shown, hit save.
 
-<img width="594" height="138" alt="Screenshot 2025-09-19 at 08 40 57" src="https://github.com/user-attachments/assets/893fdcc3-c29c-4b88-ae85-a98c172768db" />
+<img width="1680" height="626" alt="Screenshot 2026-01-10 at 08 13 49" src="https://github.com/user-attachments/assets/737b5460-0701-4626-8ea9-56122f231bb4" />
 
 ## Creating Display Templates
 
 Head to the Display Templates tab.\
 Name the display template.\
-Select the desired layout, currently the options are fullscreen clock or clock with indicators.\
-Select the logo you want to use, the ones uploaded should appear in the dropdown.\
-Select your clock type.\
-Select the number of indicators to display.
-<img width="948" height="307" alt="Screenshot 2025-09-19 at 23 30 41" src="https://github.com/user-attachments/assets/0b781708-da01-4d02-81fb-fd7c0021915e" />
+Select the number of rows and columns you require. A preview will be shown in layout builder window.
 
-In the indicators section, set the label for the indicator.\
-The True / False dropdown is used to determine whether the indicator flashes or not. True = Flash, False = No Flash, Steady On.\
-Select "Click to choose colour" to select the indicator on colour.\
-Do this for each indicator then hit save.
+<img width="1294" height="417" alt="Screenshot 2026-01-10 at 08 19 51" src="https://github.com/user-attachments/assets/6e06c5a5-0cbc-4110-9cbc-e016365ca64d" />
 
-<img width="947" height="383" alt="Screenshot 2025-09-19 at 23 34 33" src="https://github.com/user-attachments/assets/c2364829-7e54-413d-a977-7cf63b827a9c" />
+Now you need to create surfaces on the grid for widgets to be assigned to.\
+This is done by assigning each block a surface id.\
+From Display Surfaces, select an ID, then select a block on the layout builder window to assign the id.\
+Use the id's to create display surfaces. The ID's must be assigned as rectangles and must not be duplicated accross non-adjacent sections.
+
+<img width="1295" height="422" alt="Screenshot 2026-01-10 at 08 26 00" src="https://github.com/user-attachments/assets/87db9d75-5433-4789-be08-632ca0fdc118" />
+
+Once done click Build to create the display sections.\
+Hover over the layout builder window to see the display surfaces.
+
+<img width="641" height="359" alt="Screenshot 2026-01-10 at 08 26 25" src="https://github.com/user-attachments/assets/55f20ed7-a497-4a65-a071-02165a0a596c" />
+
+Next assign a widget to each section.\
+Click on a widget from the Display Widgets, then click the Display Surface you want to assign it to.\
+Each section must contain a widget.
+
+<img width="643" height="359" alt="Screenshot 2026-01-10 at 08 29 09" src="https://github.com/user-attachments/assets/135ea77a-9775-4c70-b8d4-42f182ce409f" />
+
+Once done hit save.
 
 ## Adding a Client Display Device
 
