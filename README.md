@@ -1,6 +1,6 @@
-# OATIS - On Air Tally Indicator System
+# OATIS V2 - On Air Tally Indicator System - IN DEVELOPMENT
 
-<img width="3000" height="900" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
+<img width="1000" height="300" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
 ## Overview
 
@@ -38,19 +38,6 @@ Designed to operate in a server-client model, multiple displays can be centrally
 - Device Display settings can be changed remotley using the configuration tool.
 - Display templates, image files and config are sent to client devices over the network.
 - Devices can be identified using the configuration tool, bringing up a device information screen showing the clients configuration and IP information.
-
-## OATIS Configuration Tool Tabs
-- Image Store - Used for uploading images to the database to be diaplayed on client devices.
-- Device Config - Used for adding a client device to the system, assiging a Message Group and Display Instance.
-- GPIO Config - Used for configuring Arduino Microcontrollers, their COM port and pin configuration.
-- Input Triggers - Configuration of Physical and Network Inputs.
-- Input Logics - Provide a method of grouping multiple Physical and Network Input Triggers using the logic functions: AND, NAND, OR, NOR.
-- Output Logics - Provide a method of grouping multiple Physical and Network Output Triggers, providing the capability to trigger multiple outputs from a single input.
-- Output Triggers - Configuration of Physical and Netowrk Outputs.
-- Display Templates - A tool for building client display layouts. 
-- Display Instances - Provides a method of configuring a Display Template for use on a client device.
-- Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.
-- Server Config - Used for initialising the Database, Backup and Restore of configuration and setting the IP Address of the Server.
 
 # Setup
 This version of OATIS is built to run on Python 3.11.8.
@@ -98,8 +85,20 @@ A prompt will show on the first run as below, select yes. The required tables an
 
 Config tool will then continue to launch.
 
-## Set Server IP Address
+## OATIS Configuration Tool Tabs
+- Image Store - Used for uploading images to the database to be diaplayed on client devices.
+- Device Config - Used for adding a client device to the system, assiging a Message Group and Display Instance.
+- GPIO Config - Used for configuring Arduino Microcontrollers, their COM port and pin configuration.
+- Input Triggers - Configuration of Physical and Network Inputs.
+- Input Logics - Provide a method of grouping multiple Physical and Network Input Triggers using the logic functions: AND, NAND, OR, NOR.
+- Output Logics - Provide a method of grouping multiple Physical and Network Output Triggers, providing the capability to trigger multiple outputs from a single input.
+- Output Triggers - Configuration of Physical and Netowrk Outputs.
+- Display Templates - A tool for building client display layouts. 
+- Display Instances - Provides a method of configuring a Display Template for use on a client device.
+- Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.
+- Server Config - Used for initialising the Database, Backup and Restore of configuration and setting the IP Address of the Server.
 
+## Set Server IP Address
 Launch the Config tool using the main_config_tool.py script, navigate to the Server Config tab.\
 Select IP Settings.\
 Use the dropdown to select the interface you would like to use for server communication. Each entry in the dropdown will be an ip address of an active interface on the machine.\
@@ -110,7 +109,6 @@ A loopback IP address will also be shown which can be used for system testing if
 Once selected hit save.
 
 ## Adding Microcontrollers
-
 Navigate to the GPIO Config tab.\
 Hit Add Controller.\
 Enter a name for the controller.\
@@ -191,7 +189,7 @@ Name the device.\
 Set it's IP address.\
 Set it's location, this is used for logical grouping.\
 Assign a Message Group.\
-Assign a Display Template.\
+Assign a Display Instance.\
 Hit save.
 
 <img width="1680" height="408" alt="Screenshot 2026-01-10 at 14 47 52" src="https://github.com/user-attachments/assets/1bbcba7a-5674-4e11-b96a-965c7f4ae8c1" />
@@ -200,23 +198,33 @@ When a client has been added three buttons will be enabled below the device sett
 
 # Launching the Server
 Launch the server using the main_server.py script.\
-Make sure any physical GPIO controllers are plugged in when launching hte server application and that you have set the server IP address in config tool before launching.\
+The status of the server will show stopped.
+
+<img width="294" height="95" alt="Screenshot 2026-01-13 at 09 20 38" src="https://github.com/user-attachments/assets/a3b628b8-67f8-41ff-84e8-4b2a8bbac5c1" />
+
+Before starting the server, make sure any physical GPIO controllers are plugged in and that you have set the server IP address in config tool before launching.\
 If you don't set the IP address the server will default to the loopback address of 127.0.0.1.\
 If you change the server IP address when the server is running, you will need to restart the server for this to take affect.
+Click start to boot the server. The status will change to booting.
 
-The server will report it's status at regular intervals, if everything is ok the terminal output should look similar to below:
+<img width="293" height="94" alt="Screenshot 2026-01-13 at 09 24 04" src="https://github.com/user-attachments/assets/f5e3638f-7978-45d0-996c-af1bbc78b6ba" />
 
-<img width="665" height="100" alt="Screenshot 2025-09-20 at 18 33 09" src="https://github.com/user-attachments/assets/2015ddc8-ed01-4b26-9be2-f7eed497ba38" />
+If the server starts ok the status will change to running.
+If the server does not start, it is likley you have a misconfigured GPIO controller. If the port has changed or the server cannot communicate with the controller the server will not boot. The server will tell you why in the GUI.
+
+<img width="290" height="96" alt="Screenshot 2026-01-13 at 09 26 20" src="https://github.com/user-attachments/assets/f6a218ed-1771-4307-9e84-ec22b1411a22" />
 
 # Launching the Remote Client
 Launch the main_client.py script.
-On the first run the terminal window will prompt you to set the IP address to use for the client and the server, follow the prompts.\
-Once these IP's have been set the client will boot straight up in future.\
-If you need to change these in the future amend the settings file in /client/data/settings.json and reboot the client.
+On first run a GUI window will open prompting you to set the IP address to use for the client and the server.\
+Once these IP's have been set the client will boot without launching this window on subsequent launches.\
+To change the IP's in the future hit "i" on a keyboard when OATIS is running, this will close the client and set a flag to bring up the IP configuration menu on next launch.
 
-<img width="523" height="113" alt="Screenshot 2025-09-20 at 20 16 45" src="https://github.com/user-attachments/assets/27fe70be-9ff4-4b91-9150-aad5876c3f86" />
+<img width="1086" height="513" alt="Screenshot 2026-01-13 at 09 42 14" src="https://github.com/user-attachments/assets/9fcb6f7e-a899-42b7-8be3-016f19f96c72" />
 
-If the client has a successfull connection to the server, the small circular indicator in the bottom of the clockface will remain grey. If the server cannot be reached this will flash red.
+If the client has a successful connection to the server, the small circular indicator in the bottom of the clockface will remain grey. If the server cannot be reached this will flash red.
+
+To exit the client, press "ESC" on the keyboard.
 
 # Launching the Message Console
 Launch the main_message_console.py script.\
