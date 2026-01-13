@@ -196,6 +196,66 @@ Hit save.
 
 When a client has been added three buttons will be enabled below the device settings allowing the user to reload the display template if changes are made, and identify the device.
 
+## Adding Input Triggers
+
+Click on the Input Triggers tab.\
+Click Add.\
+Enter a name for the trigger.\
+Select the controller that will sense the trigger, Network for OSC inputs, any others listed will be Physical Arduinos.
+Then select the address on that controller for the trigger.\
+
+For a Physical Controller, this will be the pin number.
+<img width="1680" height="218" alt="Screenshot 2026-01-13 at 22 56 14" src="https://github.com/user-attachments/assets/6af5b2bd-f90a-46d8-89fa-c9b7a8f423ff" />
+
+For a Netowrk Controller, this will be the OSC address.
+<img width="1680" height="216" alt="Screenshot 2026-01-13 at 22 58 37" src="https://github.com/user-attachments/assets/b0f485eb-8cc0-4791-b40e-ba4a951892a1" />
+
+## Adding Input Logics
+Input Logics allow a many-to-one relationship to be setup, allowing a group of input triggers to trigger a single Logical Input based on a condition chosen by the user.\
+Click on the Input Logics tab.\
+Click Add.\
+Enter a name for the Input Logic.\
+Listed on the left are all the configured Input Triggers, select which ones you would like to trigger this Input Logic and use the arrow buttons to move them into the Active Input Triggers Column. You can select multiple by holding down Ctrl.\
+Then select the high-condition for this Input Logic, this determins how the Input Logic behaves when the Active Input Triggers go high or low.. The available options are AND, NAND, OR, NOR.
+Once done hit save.
+
+<img width="1680" height="716" alt="Screenshot 2026-01-13 at 23 07 07" src="https://github.com/user-attachments/assets/42c4b4f2-b51a-46cc-81d7-4e74f70c5553" />
+
+## Adding Output Triggers
+Physical GPO's or OSC commands can be set as Output Triggers.
+Click on the Output Triggers tab.\
+Click Add.\
+Enter a name for the Output Trigger.\
+Select the type of output, GPO for a physical Arduino Output, or Network for an OSC Output.\
+If GPO is selected, select the controller to use and the address to trigger.\
+The rest of the input fields will be greyed out.\
+<img width="1680" height="715" alt="Screenshot 2026-01-13 at 23 37 04" src="https://github.com/user-attachments/assets/cbc1834f-df3a-4edb-86bd-243ea34c4c6a" />
+
+If Network is selected, the Controller will automatically be set to Network, and address will be greyed out.\
+Enter the IP address of the OSC Client you want to send a command to.\
+Enter the port and select the protocol to use.\
+Enter the OSC command to send to the client when this Output Trigger goes high, adding optional arguments, each seperated by a space.\
+Enter the OSC command to send to the client when this Output Trigger goes low, adding optional arguments, each seperated by a space.\
+Click Save once done.\
+
+<img width="1680" height="712" alt="Screenshot 2026-01-13 at 23 40 35" src="https://github.com/user-attachments/assets/9ed0d8ac-b1ce-4cc0-ad75-21e8d11b1b1b" />
+
+
+<img width="1680" height="1050" alt="Screenshot 2026-01-13 at 23 13 25" src="https://github.com/user-attachments/assets/799fbec1-1a35-4b2c-bf88-2fd3cd42585a" />
+
+## Adding Output Logics
+Output Logics allow a one-to-many relationship to be setup, allowing a single Logical Input to trigger multiple Output Triggers.
+Click on the Output Logics tab.\
+Click Add.\
+Enter a name for the Output Logic.\
+Select the Input Logic that will trigger this Output logic.\
+Listed on the left are all the configured Output Triggers, select which outputs you want this output Logic to Trigger and use the arrows to move them to the Active outptu Triggers Column.
+Once done hit save.
+
+<img width="1680" height="719" alt="Screenshot 2026-01-13 at 23 14 48" src="https://github.com/user-attachments/assets/5080d392-473a-4615-914a-d81e87015b61" />
+
+
+
 # Launching the Server
 Launch the server using the main_server.py script.\
 The status of the server will show stopped.
