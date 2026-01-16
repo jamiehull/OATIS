@@ -32,7 +32,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
 - Clients are segregated into Logical Messaging groups for sending messages to a group of clients.
 - Message console application for sending messages to clients.
   
-<img width="1920" height="1080" alt="Client Showing Messaging Function" src="https://github.com/user-attachments/assets/7a54719f-49f8-444b-b443-20b84035e70c" />
+<img width="1919" height="162" alt="Screenshot 2026-01-16 at 18 20 20" src="https://github.com/user-attachments/assets/17f142cb-8549-4802-828b-7a2cc1a629bb" />
 
 ### Remote management of Display Devices:
 - Device Display settings can be changed remotley using the configuration tool.
@@ -71,7 +71,7 @@ Open Arduino IDE and navigate to File > Examples > FirmataExpress > FirmataExpre
 
 <img width="1920" height="1080" alt="logo" src="https://github.com/user-attachments/assets/1972e753-0c02-4332-9f9f-34424e9a43ed" />
 
-Upload the Sketch to your Board, your now ready to use the microcontroller with OATIS.
+Upload the Sketch to your Board, you are now ready to use the microcontroller with OATIS.
 
 ## Build the Database - It's not as scrary as it sounds...I promise!
 OATIS will complain if it does not find a valid database file. The database needs to be built using the config tool.
@@ -92,7 +92,7 @@ Config tool will then continue to launch.
 - Input Triggers - Configuration of Physical and Network Inputs.
 - Input Logics - Provide a method of grouping multiple Physical and Network Input Triggers using the logic functions: AND, NAND, OR, NOR.
 - Output Logics - Provide a method of grouping multiple Physical and Network Output Triggers, providing the capability to trigger multiple outputs from a single input.
-- Output Triggers - Configuration of Physical and Netowrk Outputs.
+- Output Triggers - Configuration of Physical and Network Outputs.
 - Display Templates - A tool for building client display layouts. 
 - Display Instances - Provides a method of configuring a Display Template for use on a client device.
 - Messaging Groups - Provides a method to create Logical Groups of devices messages can be sent to.
@@ -112,7 +112,7 @@ Once selected hit save.
 Navigate to the GPIO Config tab.\
 Hit Add Controller.\
 Enter a name for the controller.\
-Enter the loation the controller, e.g. equipment room.\
+Enter the location of the controller, e.g. equipment room.\
 Select which type of Arduino you are using.\
 Use the COM port dropdown to select the USB-Serial port to use to communicate with the Arduino.
 
@@ -154,7 +154,7 @@ Select the number of rows and columns you require. A preview will be shown in la
 Now you need to create surfaces on the grid for widgets to be assigned to.\
 This is done by assigning each block a surface id.\
 From Display Surfaces, select an ID, then select a block on the layout builder window to assign the id.\
-Use the id's to create display surfaces. The ID's must be assigned as rectangles and must not be duplicated accross non-adjacent sections.
+Use the id's to create display surfaces. The ID's must be assigned as rectangles and must not be duplicated accross non-adjacent sections, OATIS will complain if you do this.
 
 <img width="1295" height="422" alt="Screenshot 2026-01-10 at 08 26 00" src="https://github.com/user-attachments/assets/87db9d75-5433-4789-be08-632ca0fdc118" />
 
@@ -202,12 +202,12 @@ Click on the Input Triggers tab.\
 Click Add.\
 Enter a name for the trigger.\
 Select the controller that will sense the trigger, Network for OSC inputs, any others listed will be Physical Arduinos.
-Then select the address on that controller for the trigger.\
+Then select the address on that controller for the trigger.
 
 For a Physical Controller, this will be the pin number.
 <img width="1680" height="218" alt="Screenshot 2026-01-13 at 22 56 14" src="https://github.com/user-attachments/assets/6af5b2bd-f90a-46d8-89fa-c9b7a8f423ff" />
 
-For a Netowrk Controller, this will be the OSC address.
+For a Network Controller, this will be the OSC address.
 <img width="1680" height="216" alt="Screenshot 2026-01-13 at 22 58 37" src="https://github.com/user-attachments/assets/b0f485eb-8cc0-4791-b40e-ba4a951892a1" />
 
 ## Adding Input Logics
@@ -216,7 +216,7 @@ Click on the Input Logics tab.\
 Click Add.\
 Enter a name for the Input Logic.\
 Listed on the left are all the configured Input Triggers, select which ones you would like to trigger this Input Logic and use the arrow buttons to move them into the Active Input Triggers Column. You can select multiple by holding down Ctrl.\
-Then select the high-condition for this Input Logic, this determins how the Input Logic behaves when the Active Input Triggers go high or low.. The available options are AND, NAND, OR, NOR.
+Then select the high-condition for this Input Logic, this determins how the Input Logic behaves when the Active Input Triggers go high or low. The available options are AND, NAND, OR, NOR.
 Once done hit save.
 
 <img width="1680" height="716" alt="Screenshot 2026-01-13 at 23 07 07" src="https://github.com/user-attachments/assets/42c4b4f2-b51a-46cc-81d7-4e74f70c5553" />
@@ -236,10 +236,9 @@ Enter the IP address of the OSC Client you want to send a command to.\
 Enter the port and select the protocol to use.\
 Enter the OSC command to send to the client when this Output Trigger goes high, adding optional arguments, each seperated by a space.\
 Enter the OSC command to send to the client when this Output Trigger goes low, adding optional arguments, each seperated by a space.\
-Click Save once done.\
+Click Save once done.
 
 <img width="1680" height="712" alt="Screenshot 2026-01-13 at 23 40 35" src="https://github.com/user-attachments/assets/9ed0d8ac-b1ce-4cc0-ad75-21e8d11b1b1b" />
-
 
 <img width="1680" height="1050" alt="Screenshot 2026-01-13 at 23 13 25" src="https://github.com/user-attachments/assets/799fbec1-1a35-4b2c-bf88-2fd3cd42585a" />
 
@@ -249,12 +248,10 @@ Click on the Output Logics tab.\
 Click Add.\
 Enter a name for the Output Logic.\
 Select the Input Logic that will trigger this Output logic.\
-Listed on the left are all the configured Output Triggers, select which outputs you want this output Logic to Trigger and use the arrows to move them to the Active outptu Triggers Column.
+Listed on the left are all the configured Output Triggers, select which outputs you want this output Logic to Trigger and use the arrows to move them to the Active Output Triggers Column.
 Once done hit save.
 
 <img width="1680" height="719" alt="Screenshot 2026-01-13 at 23 14 48" src="https://github.com/user-attachments/assets/5080d392-473a-4615-914a-d81e87015b61" />
-
-
 
 # Launching the Server
 Launch the server using the main_server.py script.\
@@ -262,7 +259,7 @@ The status of the server will show stopped.
 
 <img width="294" height="95" alt="Screenshot 2026-01-13 at 09 20 38" src="https://github.com/user-attachments/assets/a3b628b8-67f8-41ff-84e8-4b2a8bbac5c1" />
 
-Before starting the server, make sure any physical GPIO controllers are plugged in and that you have set the server IP address in config tool before launching.\
+Before starting the server, make sure any physical GPIO controllers are plugged in and that you have set the server IP address in config tool.\
 If you don't set the IP address the server will default to the loopback address of 127.0.0.1.\
 If you change the server IP address when the server is running, you will need to restart the server for this to take affect.
 Click start to boot the server. The status will change to booting.
@@ -298,7 +295,7 @@ Hit Save, you will automatically return to the Message Console main screen.
 
 <img width="1091" height="516" alt="Screenshot 2025-09-20 at 20 33 06" src="https://github.com/user-attachments/assets/0b9d9650-562c-490a-8c09-fdcefc47d949" />
 
-If you've set everything correctly, Message Groups assigned ot devices will populate in the GUI.\
+If you've set everything correctly, Message Groups assigned to devices will populate in the GUI.\
 The status bar will show as below:
 <img width="1923" height="39" alt="Screenshot 2025-09-20 at 20 34 11" src="https://github.com/user-attachments/assets/bbdc9e9c-f56e-419b-b7c4-6cde4988d7a6" />
 
@@ -317,14 +314,18 @@ Hit the red arrow button.
 
 # API's 
 
-## Server API - For Interaction by external devices and software - OSC Protocol - UDP Port 1337
+## Server API's - For Interaction by external devices and software - OSC Protocol - TCP/UDP Port 1337
 
-#### Triggering a Signal Light on or off
-```
-/{trigger_group_name}/signal-lights/{indicator_number} => Args: ("state")
-```
-state = 1 => Signal Light On \
-state = 0 => Signal Light Off
+#### Network Input Triggers
+
+Network Input Triggers are user configurable.
+The user chooses which OSC address will be used to trigger the Input Trigger.
+Valid arguments are:
+- 1 > Triggers the Input Trigger High
+- 0 > Triggers the Input Trigger Low
+
+<img width="490" height="164" alt="Screenshot 2026-01-16 at 16 56 44" src="https://github.com/user-attachments/assets/3bd30638-2e13-4e62-92af-025c69e5e33e" />
+
 
 
 
