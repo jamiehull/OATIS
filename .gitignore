@@ -154,3 +154,4 @@ cython_debug/
 *.code-workspace
 .DS_Store
 
+database/oatis_db
