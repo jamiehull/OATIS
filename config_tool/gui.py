@@ -32,7 +32,7 @@ class GUI:
         #Set Window title and size.
         self.logger.debug("Setting self.root window attributes")
         self.root.title("OATIS Configuration Tool")
-        self.root.attributes("-fullscreen", True)
+        #self.root.attributes("-fullscreen", True)
 
         #Check if the database has been initialised
         self.logger.debug("Determining state of the database")
@@ -51,7 +51,8 @@ class GUI:
                 self.logger.info("Terminating Program")
                 self.root.destroy()
                 exit(0)
-        
+
+        self.root.attributes("-fullscreen", True)
         self.default_font = ctk.CTkFont(default_font, default_size)
         default_tk_font = tkFont.nametofont('TkDefaultFont')
         default_tk_font.configure(family='Arial', size=15)
