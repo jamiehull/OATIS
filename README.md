@@ -326,6 +326,32 @@ Valid arguments are:
 
 <img width="490" height="164" alt="Screenshot 2026-01-16 at 16 56 44" src="https://github.com/user-attachments/assets/3bd30638-2e13-4e62-92af-025c69e5e33e" />
 
+#### Messaging
+
+Messages can be sent to clients using the Message Console, but should you want to interface your own application, they can also be sent using an OSC API.
+
+##### Sending a Message to a Client
+Command:
+```
+/messaging/send_message
+```
+
+Arguments:
+```
+"message_text" "bg_colour_hex" "message_group_id"
+```
+
+##### Stopping an Active Message
+Command:
+```
+/messaging/stop_message
+```
+
+Arguments:
+```
+"message_group_id"
+```
+
 
 
 
