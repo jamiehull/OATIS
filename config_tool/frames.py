@@ -455,6 +455,9 @@ class Controller_Config(BaseFrameNew):
                 #Set the state indicator to true - no tree item is selected
                 self.set_new_item_state(True)
 
+                #Update the port combobox values
+                self.__set_port_combobox_values()
+
                 self.logger.info("Saved Input Data to Database")
 
         else:
@@ -496,6 +499,10 @@ class Controller_Config(BaseFrameNew):
 
                         #Update the tree
                         self.update_tree()
+
+                        #Update the port combobox values
+                        self.__set_port_combobox_values()
+                        
                     else:
                         #Warn the user the item cannot be deleted to maintain database integrity
                         delete_warning(feedback)
@@ -583,11 +590,12 @@ class Controller_Config(BaseFrameNew):
     def __add_new_pin_modes(self, controller_id, controller_type, pin_config_list:list):
         #Get the start and end pin indexes for the selected controller type
         controller_type_row = self.db.get_current_row_data("controller_types", "model", controller_type)[0]
+        total_gpio_pins = controller_type_row[2]
         start_pin_index = controller_type_row[3]
         end_pin_index = controller_type_row[4]
 
         #Add pin modes to the database
-        for i in range(start_pin_index, end_pin_index):
+        for i in range(0, total_gpio_pins):
             pin_id = pin_config_list[i][0]
             pin_mode = pin_config_list[i][1]
             self.db.add_pin_mode(controller_id, pin_id, pin_mode)
