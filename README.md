@@ -1,4 +1,4 @@
-# OATIS V2 - On Air Tally Indicator System - IN DEVELOPMENT
+# OATIS V2 - On Air Tally Indicator System - IN TESTING
 
 <img width="1000" height="300" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
