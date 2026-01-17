@@ -280,8 +280,8 @@ class DB:
         
         #Default database entries for the system to work
         self.add_controller_type("Network", "Network", 0, 0, 0, 0, 0)
-        self.add_controller_type("Arduino", "UNO", 20, 0, 20, 14, 20)
-        self.add_controller_type("Arduino", "MEGA",54, 0, 54, 0, 0)
+        self.add_controller_type("Arduino", "UNO", 18, 2, 20, 14, 20)
+        self.add_controller_type("Arduino", "MEGA", 52, 2, 54, 0, 0)
 
         self.__add_network_controller(0, "Network", "Network", "N/A", "N/A", "Network", "N/A", "N/A")
 

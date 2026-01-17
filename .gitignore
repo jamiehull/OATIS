@@ -155,3 +155,8 @@ cython_debug/
 .DS_Store
 
 database/oatis_db
+client/data/display_template.json
+/client/data/images
+client/data/settings.json
+client/data/settings.json
+config_tool/temp.png

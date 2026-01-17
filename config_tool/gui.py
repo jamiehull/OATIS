@@ -32,7 +32,6 @@ class GUI:
         #Set Window title and size.
         self.logger.debug("Setting self.root window attributes")
         self.root.title("OATIS Configuration Tool")
-        #self.root.attributes("-fullscreen", True)
 
         #Check if the database has been initialised
         self.logger.debug("Determining state of the database")

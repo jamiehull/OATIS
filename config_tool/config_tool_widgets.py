@@ -1540,7 +1540,7 @@ class Display_Instance_Settings(ctk.CTkFrame):
 #-------------------------GPIO Config-Widgets-------------------------
 
 class GPIO_Pin_Config(ctk.CTkFrame):
-     """Makes a row with a title on the left and three radio button selections on right to configure a GPIO pin as Disables, Input or Output."""
+     """Makes a row with a title on the left and three radio button selections on right to configure a GPIO pin as Disabled, Input or Output."""
      def __init__(self, parent):
           super().__init__(parent)
 
