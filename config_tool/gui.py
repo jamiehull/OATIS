@@ -50,6 +50,7 @@ class GUI:
             else:
                 self.logger.info("Terminating Program")
                 self.root.destroy()
+                exit(0)
         
         self.default_font = ctk.CTkFont(default_font, default_size)
         default_tk_font = tkFont.nametofont('TkDefaultFont')
