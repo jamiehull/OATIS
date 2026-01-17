@@ -1,960 +1,753 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import StringVar
-from tkinter import ttk
-from config_tool.validation import Validation
-import logging
+from config_tool.validation import validate_ip
 from serial.tools.list_ports import comports
-from config_tool.message_boxes import Message_Boxes
+from config_tool.message_boxes import *
 from tkinter import messagebox
-from tkinter import IntVar
 from tkinter import filedialog
-from PIL import Image
-from config_tool.gui_templates import *
-from database.database_connection import DB
+from modules.gui_templates import *
 import shutil
 import os
 import logging
 from config_tool.global_variables import *
 import datetime
 from modules.common import *
-from modules.osc import OSC_Client
+from config_tool.config_tool_widgets import *
 from modules.tcp import *
+from display_widgets.widget_strings import widget_strings_list
 
+class Image_Store(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
 
+        #Rows to make in the frame
+        row1 = Input_Row("", "image_picker", "not_null_not_in_db")
+        self.image_picker_widget_index = 0
 
-class Device_Config(BaseFrame):
+        row_list = [row1]
 
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Image Store", "images", "image_name", "image_id", row_list)
 
-        #GUI Variables - to allow dynamic updating
-        self.device_id_var = StringVar()
-        self.device_name_var = StringVar()
-        self.device_ip_var = StringVar()
-        self.location_var = StringVar()
-        self.msg_group_name_var = StringVar()
-        self.trig_grp_name_var = StringVar()
-        self.display_tmplt_name_var = StringVar()
-        self.msg_group_id_var = StringVar()
-        self.trig_grp_id_var = StringVar()
-        self.display_tmplt_id_var = StringVar()
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
 
-        #Variables to store the names of combobox items
-        self.msg_names_list = []
-        self.trig_grp_names_list = []
-        self.display_tmplt_names_list = []
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
 
-        #Variables to store the ID's of combobox items
-        self.msg_ids_list = []
-        self.trig_grp_ids_list = []
-        self.display_tmplt_ids_list = []
+        #Bindings
+        self.__set_bindings()
 
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
+        #Update treeviewer with currrent data
+        self.update_tree()
 
-        #Add the display widgets to the frame
-        self.__add_widgets()
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
 
-        #Refresh the tree view with the current database data so it's not empty on startup
-        self.logger.info("Retrieving current devices table data")
-        updated_rows = self.db.get_current_table_data("devices")
-
-        self.logger.info("Updating devices tree")
-        self.__update_tree(updated_rows)
-
+        self.update_tree()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
         #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
-        
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-    def __set_id(self, combobox_value, id):
-        self.logger.info(f"Combobox:{combobox_value}")
-        self.logger.debug(f"msg_names_list: {self.msg_names_list}")
-        self.logger.debug(f"trig_grp_names_list: {self.trig_grp_names_list}")
-        self.logger.debug(f"display_tmplt_list: {self.display_tmplt_names_list}")
-        if id == 0:
-            self.logger.debug(f"Combobox value is in msg_names_list, value: {combobox_value}")
-            name = self.msg_group_name_var.get()
-            id_var = self.msg_group_id_var
-            names_list = self.msg_names_list
-            ids_list = self.msg_ids_list
-        if id == 1:
-            self.logger.debug(f"Combobox value is in trig_grp_names_list, value: {combobox_value}")
-            name = self.trig_grp_name_var.get()
-            id_var = self.trig_grp_id_var
-            names_list = self.trig_grp_names_list
-            ids_list = self.trig_grp_ids_list
-        if id == 2:
-            self.logger.debug(f"Combobox value is in display_tmplt_names_list, value: {combobox_value}")
-            name = self.display_tmplt_name_var.get()
-            id_var = self.display_tmplt_id_var
-            names_list = self.display_tmplt_names_list
-            ids_list = self.display_tmplt_ids_list
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        self.logger.info(f"Combobox selection = {name}")
-        #Get the index of the name in the names list
-        index = names_list.index(name)
-        self.logger.info(f"Index of name in names list: {index}")
-        #Use this index to select the corresponding id from the id lis
-        id = ids_list[index]
-        self.logger.info(f"ID of selection in database: {id}")
-        id_var.set(id)
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update the widgets if a valid tree item is selected
-        if self.tree.item(selected)["text"] != '':
-            #Set the state indicator variable to False, indicating an item is to be modified
-            self.new_item = False
-            self.logger.info("Set State Indicator to False - an existing item is being modified")
-            #Retrieve the id of the messaging group
-            db_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item
-            row = self.db.get_current_row_data("devices", "device_id", db_id)
-            self.logger.info("Populating entry fields with data for selected tree viewer item")
-            #Populate the fields with the data
-            self.device_id_var.set(row[0][0])
-            self.device_name_var.set(row[0][1])
-            self.device_ip_var.set(row[0][2])
-            self.location_var.set(row[0][3])
-            self.msg_group_id_var.set(row[0][4])
-            self.trig_grp_id_var.set(row[0][5])
-            self.display_tmplt_id_var.set(row[0][6])
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            image_path :str = input_data_list[self.image_picker_widget_index]
 
-            #Query the database to get the names of message group, trig group and display template given the id's and update the combobox with the name
-            self.msg_group_name_var.set(self.db.get_1column_data("messaging_group_name", "messaging_groups", "messaging_group_id", self.msg_group_id_var.get())[0])
-            self.trig_grp_name_var.set(self.db.get_1column_data("trigger_group_name", "trigger_groups", "trigger_group_id", self.trig_grp_id_var.get())[0])
-            self.display_tmplt_name_var.set(self.db.get_1column_data("display_template_name", "display_templates", "display_template_id", self.display_tmplt_id_var.get())[0])
+            #Save the data to the database
+            self.__save_input_data(image_path)
 
-            self.device_control_frame.grid(column=0, row=9, columnspan=4, sticky="ew")
-            
+            self.input_frame.clear_all_entries()
 
-            self.logger.info("Updated all entry Widgets")
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
+
+            self.logger.info("Saved Input Data to Database")
+
+            self.update_tree()
+
         else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-            #Set the state indicator variable to True indicating a new item is to be added
-            #Clear the entry widgets
-            self.__clear_widgets()
-            #Set the state indicator variable to True indicating a new item is to be added
-            self.new_item = True
-            self.logger.info("State indicator set to True")
+            #Show a message box stating cannot save data
+            image_unchanged_warning()()
 
-    
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Set the state indicator variable to True, indicating a new item is to be added
-        self.new_item = True
-        self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
+    #Save input data to the database
+    def __save_input_data(self, image_path):
+        """Saves input data to the database."""
 
-        #Clear All entry Widgets
-        self.device_id_var.set("")
-        self.device_name_var.set("")
-        self.device_ip_var.set("")
-        self.location_var.set("")
-        self.msg_group_id_var.set("")
-        self.trig_grp_id_var.set("")
-        self.display_tmplt_id_var.set("")
-        self.msg_group_name_var.set("")
-        self.trig_grp_name_var.set("")
-        self.display_tmplt_name_var.set("")
-        self.device_control_frame.grid_forget()
-        self.logger.info("Cleared all entry Widgets")
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self, updated_rows):
-        self.logger.debug(f"#######---Updating Tree Viewer---#######")
-        self.logger.debug(f"Data input to Tree: {updated_rows}")
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared devices tree")
+        #Get name of image file from path
+        image_name = os.path.basename(image_path)
 
-        #Create the parents based on device locations
-        locations_dict = {} #Used to hold treeviewer parent id's
-        for row in updated_rows:
-            #Identify the device location
-            device_location = str(row[3])
-            #If location is not in the dict add it
-            if locations_dict.get(device_location) == None:
-                #Add the location as a parent in the tree
-                id = self.tree.insert("", tk.END, text="", values=(device_location,))
-                self.tree.insert(id, tk.END, text=row[0], values=(row[1],))
-                #Add the location to the parent dictionary
-                locations_dict[device_location] = id
-            #If the location exists as a parent, add it to the parent
-            else:
-                parent_id = locations_dict[device_location]
-                self.tree.insert(parent_id, tk.END, text=row[0], values=(row[1],))
+        #Convert image to a binary object
+        blob_image = convert_to_blob(image_path)
 
-        self.logger.info("Tree Updated")
-
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        self.logger.info("Save Button Clicked")
-        #Verify all entries populated
-        valid = self.__verify_input()
-        #Determine whether a new item or modifying existing
-        #Adding a new item
+        #Saving a new item
         if self.new_item == True:
-            if valid == True:
-                self.logger.info("Adding New Item to Database")
-                #Add all the current entry data to the database
-                self.db.add_device(self.device_name_var.get(), self.device_ip_var.get(), self.location_var.get(), self.msg_group_id_var.get(), self.trig_grp_id_var.get(), self.display_tmplt_id_var.get())
-                self.logger.info("Added new item to database")
-                #Refresh the tree
-                updated_rows = self.db.get_current_table_data("devices")
-                self.__update_tree(updated_rows)
-                #Clear all entry widget fields
-                self.__clear_widgets()
-            else:
-                self.logger.info("Value Empty - Nothing Added to Database")
+            self.logger.info("Saving new item to the database")
             
+            #Add the validated data to the database
+            self.db.add_image(image_name, blob_image)
 
-        #Modifying existing item    
+        #Updating an existing item
         else:
-            #Get the value from the ID and name widgets
-            db_id = self.device_id_var.get()
-            name = self.device_name_var.get()
-            #Check if the entry box contains text
-            if valid == True:
-                self.logger.info("Modifing existing database entry")
-                self.logger.info(f"Updating database entry for trigger group: {name}, ID={db_id}")
-                #Update the existing entry in the database
-                #self.db.update_display_template(db_id, self.template_name_var.get(), self.ticker_var.get(), self.logo_var.get(), self.studio_name_var.get(), self.show_name_var.get(), self.time_var.get(), self.mic_live_var.get(), self.tx_ind_var.get(), self.cue_ind_var.get(), self.lin1_ind_var.get(), self.lin2_ind_var.get(), self.control_ind_var.get())
-                columns_dict = {"device_name" :self.device_name_var.get(), "device_ip" :self.device_ip_var.get(), "location" :self.location_var.get(), "messaging_group_id" :self.msg_group_id_var.get(), "trigger_group_id" :self.trig_grp_id_var.get(), "display_template_id" :self.display_tmplt_id_var.get()}
-                for column in columns_dict:
-                    self.logger.info(f"Updating column: {column} with {columns_dict[column]}")
-                    self.db.update_row("devices", column, "device_id", columns_dict[column], db_id)
-                
-                #Refresh the tree
-                updated_rows = self.db.get_current_table_data("devices")
-                self.__update_tree(updated_rows)
-                #Clear all entry widget fields
-                self.__clear_widgets()
+            self.logger.info("Updating existing database entry")
 
-            else:
-                self.logger.info("Value Empty - Nothing Added to Database")
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
 
-    #Removes an entry from the database
-    def __remove_device(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        self.logger.debug(f"Selected tree item is:{selected}")
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
-            if confirmation == True:
-                #Retrieve the id of the display template
-                db_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database
-                feedback = self.db.delete_row("devices", "device_id", db_id)
-                if feedback == True:
-                    self.logger.info(f"Deleted trigger group with ID={db_id} from the database")
-                    #Clear the entry widgets
-                    self.__clear_widgets()
-                    #Refresh the tree view
-                    updated_rows = self.db.get_current_table_data("devices")
-                    self.__update_tree(updated_rows)
-                else:
-                    #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning(feedback)
+            self.db.update_row(self.table, "image_name", self.id_column, image_name, db_id)
+            self.db.update_row(self.table, "image_file", self.id_column, blob_image, db_id)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            image_name = item_data_list[1]
+            blob_image = item_data_list[2]
+
+            #Add all data to the input frame widgets
+            image_picker_object : ImagePicker = self.input_frame.get_widget_object(0)
+            image_picker_object.set_image(blob_image)
+            
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+      
+class Device_Config(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+    
+        #Rows to make in the frame
+        row1 = Input_Row("Device Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
+
+        row2 = Input_Row("Device IP Address:", "text_entry", "not_null_ip_address")
+        self.ip_input_widget_index = 1
+
+        row3 = Input_Row("Device Location:", "text_entry", "not_null")
+        self.location_input_widget_index = 2
+
+        row4 = Input_Row("Messaging Group:", "combobox", "not_null")
+        self.messaging_group_widget_index = 3
+
+        row5 = Input_Row("Display Instance:", "combobox", "not_null")
+        self.display_instance_widget_index = 4
+
+        row6 = Input_Row("Display Instance:", "control_buttons", "n/a")
+        self.control_buttons_widget_index = 5
+        
+        row_list = [row1, row2, row3, row4, row5, row6]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Device Configuration", "devices", "device_name", "device_id", row_list)
+
+        #Set Control button Commands
+        control_buttons : Control_Buttons = self.input_frame.get_widget_object(self.control_buttons_widget_index)
+        control_buttons.set_identify_cmd(self.__identify_device)
+        control_buttons.set_reload_cmd(self.__reload_device_display)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+        self.update_tree()
+        self.__update_combobox_values()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
+
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
+
+        valid_status, input_data_list = self.get_and_validate_input_data()
+
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            device_name = input_data_list[self.name_input_widget_index]
+            device_ip = input_data_list[self.ip_input_widget_index]
+            location = input_data_list[self.location_input_widget_index]
+            message_group_id = input_data_list[self.messaging_group_widget_index].split(":")[0]
+            display_instance_id = input_data_list[self.display_instance_widget_index].split(":")[0]
+
+            #Save the data to the database
+            self.__save_input_data(device_name, device_ip, location, message_group_id, display_instance_id)
+
+            self.input_frame.clear_all_entries()
+
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
+
+            self.logger.info("Saved Input Data to Database")
+
+            #Disable the buttons
+            control_buttons_widget : Control_Buttons = self.input_frame.get_widget_object(self.control_buttons_widget_index)
+            control_buttons_widget.disable_buttons()
+
+            self.update_tree()
+
         else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
+            #Show a message box stating cannot save data
+            invalid_data_warning()
+
+    #Save input data to the database
+    def __save_input_data(self, device_name, device_ip, location, message_group_id, display_instance_id):
+        """Saves input data to the database."""
+
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+            
+            #Add the validated data to the database
+            self.db.add_device(device_name, device_ip, location, message_group_id, display_instance_id)
+
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            self.db.update_row(self.table, "device_name", self.id_column, device_name, db_id)
+            self.db.update_row(self.table, "device_ip", self.id_column, device_ip, db_id)
+            self.db.update_row(self.table, "location", self.id_column, location, db_id)
+            self.db.update_row(self.table, "message_group_id", self.id_column, message_group_id, db_id)
+            self.db.update_row(self.table, "display_instance_id", self.id_column, display_instance_id, db_id)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            device_name = item_data_list[1]
+            device_ip = item_data_list[2]
+            location = item_data_list[3]
+            message_group_id = item_data_list[4]
+            display_instance_id = item_data_list[5]
+
+            message_group_name = self.db.get_1column_data("message_group_name", "message_groups", "message_group_id", message_group_id)[0]
+            display_instance_name = self.db.get_1column_data("display_instance_name", "display_instances", "display_instance_id", display_instance_id)[0]
+
+            message_group_id_name = f"{message_group_id}:{message_group_name}"
+            display_instance_id_name = f"{display_instance_id}:{display_instance_name}"
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(device_name, device_ip, location, message_group_id_name, display_instance_id_name)
+
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            #Enable the buttons
+            control_buttons_widget : Control_Buttons = self.input_frame.get_widget_object(self.control_buttons_widget_index)
+            control_buttons_widget.enable_buttons()
+
+            self.logger.info("Updated Input widgets")
+
+    def __update_combobox_values(self):
+        #Update Messaging Group
+        message_group_id_name_list = []
+        message_group_rows = self.db.get_2column_data("message_group_id", "message_group_name", "message_groups")
+        for row in message_group_rows:
+            id=row[0]
+            name=row[1]
+            message_group_id_name_list.append(f"{id}:{name}")
+        self.logger.debug(f"message_group_id_name_list:{message_group_id_name_list}")
+
+        self.set_combobox_values(self.messaging_group_widget_index, message_group_id_name_list)
+
+        #Update Display instance
+        display_instance_id_name_list = []
+        display_instance_rows = self.db.get_2column_data("display_instance_id", "display_instance_name", "display_instances")
+        for row in display_instance_rows:
+            id=row[0]
+            name=row[1]
+            display_instance_id_name_list.append(f"{id}:{name}")
+        self.logger.debug(f"display_instance_id_name_list:{display_instance_id_name_list}")
+
+        self.set_combobox_values(self.display_instance_widget_index, display_instance_id_name_list)
         
-
-    #Refreshes combobox options
-    def refresh_cboxs(self, event):
-        self.logger.info("Refreshing device_config combobox options")
-        #Query the database for id and names
-        query1 = self.db.get_2column_data("messaging_group_id", "messaging_group_name", "messaging_groups")
-        query2 = self.db.get_2column_data("trigger_group_id", "trigger_group_name", "trigger_groups")
-        query3 = self.db.get_2column_data("display_template_id", "display_template_name", "display_templates")
-
-        #Create lists to allow looping to function
-        queries_list = [query1, query2, query3] #List of the above query responses
-        ids_lists = [self.msg_ids_list, self.trig_grp_ids_list, self.display_tmplt_ids_list] #List of id lists
-        names_lists = [self.msg_names_list, self.trig_grp_names_list, self.display_tmplt_names_list] #List of name lists
-        combobox_list = [self.msg_grp_cbox, self.trig_grp_cbox, self.disp_tmplt_cbox] #List of comboboxed
+#-----------------------------------------CUSTOM FUNCTIONS ------------------------------------------------------------------------------------------------
+    def get_device_id(self):
+        """Returns the database id of the selected treeview item.
+          Returns None if no item is in focus."""
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        return db_id
         
-        #Clear the id / name lists
-        self.logger.info("Clearing id / name lists")
-        self.msg_ids_list.clear()
-        self.trig_grp_ids_list.clear()
-        self.display_tmplt_ids_list.clear()
-        self.msg_names_list.clear()
-        self.trig_grp_names_list.clear()
-        self.display_tmplt_names_list.clear()
-        
-        for i in range (3):
-            self.logger.info(f"Iteration: {i}")
-            self.logger.info("Setting up lists for loop")
-            #Select the correct list to work on from the lists
-            query = queries_list[i]
-            id_list = ids_lists[i]
-            name_list = names_lists[i]
-            combobox = combobox_list[i]
-            self.logger.info(f"Database query response: {query}")
-            #For each row in the query response, add the row to the id/name list.
-            for item in query:
-                #Add the name and id to the lists
-                self.logger.info(f"Adding name: {item[1]} and id: {item[0]} to lists.")
-                id_list.append(item[0])
-                name_list.append(item[1])
-                
-            #Assign values to each combobox
-            self.logger.info(f"Assigning values: {name_list}")
-            combobox.configure(values=name_list)
-
-    def __verify_input(self):
-        valid = True
-        self.logger.info("Validating input fields")
-        if self.device_name_var.get() == "":
-            self.logger.info("Device Name Empty")
-            valid = False
-        if (self.device_ip_var.get() == "") or (Validation.validate_ip(str(self.device_ip_var.get())) == False):    #TODO:Verify
-            self.logger.info("Device IP Empty or invalid format")
-            valid = False
-        if self.location_var.get() == "":
-            self.logger.info("Device Location Empty")
-            valid = False
-        if self.msg_group_name_var.get() == "":
-            self.logger.info("Device Message Group Empty")
-            valid = False
-        if self.trig_grp_name_var.get() == "":
-            self.logger.info("Device Trigger Group Empty")
-            valid = False
-        if self.display_tmplt_name_var.get() == "":
-            self.logger.info("Device Display Template Empty")
-            valid = False
-        
-        self.logger.debug(f"Valid = {valid}")
-        return valid
-
-    def __add_widgets(self):
-        #------------------------------DEVICE CONFIG FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
-
-        add_btn = ctk.CTkButton(self, text="Add Device", font=self.default_font, fg_color="green", command=lambda:self.__clear_widgets())
-        add_btn.grid(column=0, row=1, sticky="nsew")
-
-        del_btn = ctk.CTkButton(self, text="Remove Device", font=self.default_font, fg_color="red", command=lambda:self.__remove_device())
-        del_btn.grid(column=0, row=2, sticky="nsew")
-
-        #------------------------------DEVICE CONFIG FRAME-DEVICE SETUP FRAME--------------------------------------------------
-        #Create a frame to contain settings about the individual client device
-        self.device_setup_frame = ctk.CTkScrollableFrame(self, border_color="green", border_width=1)
-        self.device_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
-
-        #Setup Columns / rows for self.device_setup_frame
-
-        self.device_setup_frame.columnconfigure(0, weight=0, pad=20)
-        self.device_setup_frame.columnconfigure(1, weight=1, pad=20)
-        self.device_setup_frame.columnconfigure(2, weight=1, pad=20)
-        self.device_setup_frame.columnconfigure(3, weight=1, pad=20)
-
-        for i in range(29):
-            self.device_setup_frame.rowconfigure(i, weight=0, pad=10)
-
-        #------------------------------DEVICE SETUP FRAME WIDGETS--------------------------------------------------
-        #------------------------------Device Attributes--------------------------------------------------
-        title1_label = ctk.CTkLabel(master=self.device_setup_frame, text="Device Attributes", font=self.default_font)
-        title1_label.grid(column=0, row=0, columnspan=4, sticky="ew")
-
-        id_label = ctk.CTkLabel(master=self.device_setup_frame, text="Device ID:", font=self.default_font)
-        id_label.grid(column=0, row=1, sticky="w", padx=20)
-
-        id_data_label = ctk.CTkLabel(master=self.device_setup_frame, text="", font=self.default_font, textvariable=self.device_id_var)
-        id_data_label.grid(column=1, row=1, sticky="w", padx=20)
-
-        name_label = ctk.CTkLabel(master=self.device_setup_frame, text="Device Name:", font=self.default_font)
-        name_label.grid(column=0, row=2, sticky="w", padx=20)
-
-        name_entry = ctk.CTkEntry(master=self.device_setup_frame, textvariable=self.device_name_var, font=self.default_font)
-        name_entry.grid(column=1, row=2, columnspan =1, sticky="ew", padx=20)
-
-        ip_label = ctk.CTkLabel(master=self.device_setup_frame, text="Device IP Address:", font=self.default_font)
-        ip_label.grid(column=0, row=3, sticky="w", padx=20)
-
-        ip_entry = ctk.CTkEntry(master=self.device_setup_frame, textvariable=self.device_ip_var, font=self.default_font)
-        ip_entry.grid(column=1, row=3, columnspan =1, sticky="ew", padx=20)
-
-        location_label = ctk.CTkLabel(master=self.device_setup_frame, text="Device Location:", font=self.default_font)
-        location_label.grid(column=0, row=4, sticky="w", padx=20)
-
-        location_entry = ctk.CTkEntry(master=self.device_setup_frame, textvariable=self.location_var, font=self.default_font)
-        location_entry.grid(column=1, row=4, columnspan =1, sticky="ew", padx=20)
-
-        msg_grp_label = ctk.CTkLabel(master=self.device_setup_frame, text="Messaging Group:", font=self.default_font)
-        msg_grp_label.grid(column=0, row=5, sticky="w", padx=20)
-
-        self.msg_grp_cbox = ctk.CTkComboBox(master=self.device_setup_frame, state="readonly", variable=self.msg_group_name_var, command=lambda value, id=0: self.__set_id(value, id), font=self.default_font, dropdown_font=self.default_font)
-        self.msg_grp_cbox.grid(column=1, row=5, columnspan =1, sticky="ew", padx=20)
-
-        msg_grp_id_label = ctk.CTkLabel(master=self.device_setup_frame, text="ID:", font=self.default_font)
-        msg_grp_id_label.grid(column=2, row=5, sticky="e", padx=20)
-
-        msg_grp_id = ctk.CTkLabel(master=self.device_setup_frame, text="", font=self.default_font, textvariable=self.msg_group_id_var)
-        msg_grp_id.grid(column=3, row=5, sticky="w")
-
-        trig_grp_label = ctk.CTkLabel(master=self.device_setup_frame, text="Trigger Group:", font=self.default_font)
-        trig_grp_label.grid(column=0, row=6, sticky="w", padx=20)
-
-        self.trig_grp_cbox = ctk.CTkComboBox(master=self.device_setup_frame, state="readonly", variable=self.trig_grp_name_var, command=lambda value, id=1: self.__set_id(value, id), font=self.default_font, dropdown_font=self.default_font)
-        self.trig_grp_cbox.grid(column=1, row=6, columnspan =1, sticky="ew", padx=20)
-
-        trig_grp_id_label = ctk.CTkLabel(master=self.device_setup_frame, text="ID:", font=self.default_font)
-        trig_grp_id_label.grid(column=2, row=6, sticky="e", padx=20)
-
-        trig_grp_id = ctk.CTkLabel(master=self.device_setup_frame, text="", font=self.default_font, textvariable=self.trig_grp_id_var)
-        trig_grp_id.grid(column=3, row=6, sticky="w")
-
-        ##------------------------------Display Configuration--------------------------------------------------
-        title2_label = ctk.CTkLabel(master=self.device_setup_frame, text="Display Configuration", font=self.default_font, pady=15)
-        title2_label.grid(column=0, row=7, columnspan=4, sticky="ew")
-
-        disp_tmplt_label = ctk.CTkLabel(master=self.device_setup_frame, text="Display Template:", font=self.default_font)
-        disp_tmplt_label.grid(column=0, row=8, sticky="w", padx=20)
-
-        self.disp_tmplt_cbox = ctk.CTkComboBox(master=self.device_setup_frame, state="readonly", variable=self.display_tmplt_name_var, command=lambda value, id=2: self.__set_id(value, id), font=self.default_font, dropdown_font=self.default_font)
-        self.disp_tmplt_cbox.grid(column=1, row=8, columnspan =1, sticky="ew", padx=20)
-
-        disp_tmplt_id_label = ctk.CTkLabel(master=self.device_setup_frame, text="ID:", font=self.default_font)
-        disp_tmplt_id_label.grid(column=2, row=8, sticky="e", padx=20)
-
-        disp_tmplt_id = ctk.CTkLabel(master=self.device_setup_frame, text="", font=self.default_font, textvariable=self.display_tmplt_id_var)
-        disp_tmplt_id.grid(column=3, row=8, sticky="w")
-
-        ##------------------------------Device Control--------------------------------------------------
-        self.device_control_frame = ctk.CTkFrame(self.device_setup_frame)
-        #self.device_control_frame.grid(column=0, row=9, columnspan=4, sticky="ew")
-
-        for i in range(3):
-            self.device_control_frame.columnconfigure(i, weight=1, uniform="group1")
-
-        for i in range(2):
-            self.device_control_frame.rowconfigure(i, weight=0)
-
-        title3_label = ctk.CTkLabel(master=self.device_control_frame, text="Device Control", font=self.default_font, pady=15)
-        title3_label.grid(column=0, row=0, columnspan=3, sticky="ew")
-
-        reload_display_btn = ctk.CTkButton(master=self.device_control_frame, text="Reload Display Template", font=self.default_font, fg_color="green", command=lambda:self.__reload_device_display())
-        reload_display_btn.grid(column=0, row=1, sticky="ns", columnspan=1, rowspan=1, pady=20)
-
-        identify_btn = ctk.CTkButton(master=self.device_control_frame, text="Identify Device", font=self.default_font, fg_color="green", command=lambda state=True :self.__identify_device(state) )
-        identify_btn.grid(column=1, row=1, sticky="ns", columnspan=1, rowspan=1, pady=20)
-
-        exit_identify_btn = ctk.CTkButton(master=self.device_control_frame, text="Exit Identify Device", font=self.default_font, fg_color="green", command=lambda state=False :self.__identify_device(state) )
-        exit_identify_btn.grid(column=2, row=1, sticky="ns", columnspan=1, rowspan=1, pady=20)
-
-        ##------------------------------Save Settings--------------------------------------------------
-        save_btn = ctk.CTkButton(master=self, text="Save", font=self.default_font, fg_color="green", command=lambda:self.__save_entry_data())
-        save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
-
-
-    def __reboot_device(self):
-        pass
-
     def __reload_device_display(self):
         try:
-            #Get the devices IP
-            device_ip = self.device_ip_var.get()
-            device_id = self.device_id_var.get()
+            #Get the devices ID
+            device_id = self.get_device_id()
+            if device_id != None:
 
-            #Read the Server Settings file
-            settings_dict = open_json_file("server/settings.json")
+                #Read the Server Settings file
+                settings_dict = open_json_file("server/settings.json")
 
-            #Only send a command to the server if it has an ip set
-            if settings_dict != False:
-                server_ip = (settings_dict["server_ip"])
+                #Only send a command to the server if it has an ip set
+                if settings_dict != False:
+                        server_ip = (settings_dict["server_ip"])
 
-                #Send the raise frame command to the server
-                self.tcp_client = TCP_Client()
-                message = self.tcp_client.build_tcp_message("/control/client/reload_display_template", {"device_id" : device_id}, None)
-                response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
-                response = self.tcp_client.decode_data(response_bytes)
-                self.logger.debug(f"Response from Server: {response}")
+                        #Send the raise frame command to the server
+                        self.tcp_client = TCP_Client()
+                        message = self.tcp_client.build_tcp_message("/control/client/reload_display_template", {"device_id" : device_id}, None)
+                        response = self.tcp_client.tcp_send(server_ip, 1339, message)
+                        self.logger.debug(f"Response from Server: {response}")
 
-            else:
-                self.logger.error(f"Server IP address not set, please set in config tool.")
+                else:
+                        self.logger.error(f"Server IP address not set, please set in config tool.")
 
         except Exception as e:
             self.logger.error(f"Cannot send Reload Message to server: {e}")
-        
-
+            
     def __identify_device(self, state:bool):
         try:
             #Get the devices IP
-            device_id = self.device_id_var.get()
+            device_id = self.get_device_id()
+            if device_id != None:
 
-            #Read the Server Settings file
-            settings_dict = open_json_file("server/settings.json")
+                #Read the Server Settings file
+                settings_dict = open_json_file("server/settings.json")
 
-            #Only send a command to the server if it has an ip set
-            if settings_dict != False:
-                server_ip = (settings_dict["server_ip"])
+                #Only send a command to the server if it has an ip set
+                if settings_dict != False:
+                        server_ip = (settings_dict["server_ip"])
 
-                if state == True:
-                    frame = "identify"
+                        if state == True:
+                            frame = "identify"
+                        else:
+                            frame = "OATIS"
+
+                        #Send the raise frame command to the server
+                        self.tcp_client = TCP_Client()
+                        message = self.tcp_client.build_tcp_message("/control/client/identify", {"device_id" : device_id, "frame" : frame}, None)
+                        response = self.tcp_client.tcp_send(server_ip, 1339, message)
+                        self.logger.debug(f"Response from Server: {response}")
+
                 else:
-                    frame = "OATIS"
-
-                #Send the raise frame command to the server
-                self.tcp_client = TCP_Client()
-                message = self.tcp_client.build_tcp_message("/control/client/raise_frame", {"device_id" : device_id, "frame" : frame}, None)
-                response_bytes = self.tcp_client.tcp_send(server_ip, 1339, message)
-                response = self.tcp_client.decode_data(response_bytes)
-                self.logger.debug(f"Response from Server: {response}")
-
-            else:
-                self.logger.error(f"Server IP address not set, please set in config tool.")
+                        self.logger.error(f"Server IP address not set, please set in config tool.")
 
         except Exception as e:
             self.logger.error(f"Cannot send Identify Message to server: {e}")
 
-class GPIO_Config(BaseFrame):
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
+class Controller_Config(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
 
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
+        #Rows to make in the frame
+        row1 = Input_Row("Controller Name:", "text_entry", "not_null")
+        self.controller_name_input_widget_index = 0
+        row2 = Input_Row("Location:", "text_entry", "not_null")
+        self.location_input_widget_index = 1
+        row3= Input_Row("Type:", "combobox", "not_null")
+        self.type_input_widget_index = 2
+        row4= Input_Row("Port", "combobox", "not_null")
+        self.port_input_widget_index = 3
+        row5 = Input_Row("Pin Mode Configuration", "title", "n/a")
 
-        #Variables for updating combobox options
-        self.serial_ports_list = []
+        row6 = Input_Row(None, "gpio_pin_config", "n/a")
+        self.gpio_pin_config_index = 5
 
-        #GUI Variables - to allow dynamic updating
-        self.controller_id_var = StringVar()
-        self.controller_name_var = StringVar()
-        self.loc_rem_var = StringVar()
-        self.ip_var = StringVar()
-        self.com_port_var = StringVar()
-        self.controller_type_var = StringVar()
-        self.controller_type_var = StringVar()
-        self.pin2_var = StringVar()
-        self.pin3_var = StringVar()
-        self.pin4_var = StringVar()
-        self.pin5_var = StringVar()
-        self.pin6_var = StringVar()
-        self.pin7_var = StringVar()
-        self.pin8_var = StringVar()
-        self.pin9_var = StringVar()
-        self.pin10_var = StringVar()
-        self.pin11_var = StringVar()
-        self.pin12_var = StringVar()
-        self.pin13_var = StringVar()
-        self.pin14_var = StringVar()
-        self.pin15_var = StringVar()
-        self.pin16_var = StringVar()
-        self.pin17_var = StringVar()
-        self.pin18_var = StringVar()
-        self.pin19_var = StringVar()
+        row_list = [row1, row2, row3, row4, row5, row6]
 
-        self.pin_var_list = [self.pin2_var,
-                        self.pin3_var,
-                        self.pin4_var,
-                        self.pin5_var,
-                        self.pin6_var,
-                        self.pin7_var,
-                        self.pin8_var,
-                        self.pin9_var,
-                        self.pin10_var,
-                        self.pin11_var,
-                        self.pin12_var,
-                        self.pin13_var,
-                        self.pin14_var,
-                        self.pin15_var,
-                        self.pin16_var,
-                        self.pin17_var,
-                        self.pin18_var,
-                        self.pin19_var,
-                        ]
+        #Initialise the Base Frame with the above rows
+        self.build_gui("GPIO Config", "controllers", "controller_name", "controller_id", row_list)
 
-        #Add the display widgets to the frame
-        self.__add_widgets()
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
 
-        #Set default values in comboboxes
-        self.__set_combobox_defaults()
+        #Overriding the default delete command in base frame for proper handling of foreign key references
+        self.set_delete_btn_command(self.del_btn_cmd)
 
-        #Refresh the tree view with the current database data so it's not empty on startup
-        self.logger.info("Retrieving current gpio_config table data")
-        updated_rows = self.db.get_current_table_data("controllers")
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
 
-        self.logger.info("Updating gpio_config tree")
-        self.__update_tree(updated_rows)
+        #Bindings
+        self.__set_bindings()
 
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.__set_type_combobox_values()
+        self.__set_port_combobox_values()
+        self.update_tree()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        self.input_frame.set_combobox_command(self.type_input_widget_index, self.__build_gpio_pin_window)
+        
         #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        #Set the state indicator variable to False, indicating an item is to be modified
-        self.new_item = False
-        self.logger.info("Set State Indicator to False - an existing item is being modified")
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update teh widgets if a valid tree item is selected
-        if selected != '':
-            #Retrieve the id of the messaging group
-            db_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item
-            self.logger.info("Getting current data for selected item from the Database")
-            row = self.db.get_current_row_data("controllers", "controller_id", db_id)
-            self.logger.info(f"Data returned from database:{row}")
-            self.logger.info("Populating entry fields with data for selected tree viewer item")
-            #Populate the fields with the data
-            self.controller_id_var.set(row[0][0])
-            self.controller_name_var.set(row[0][1])
-            self.loc_rem_var.set(row[0][2])
-            self.ip_var.set(row[0][3])
-            self.com_port_var.set(row[0][4])
-            self.controller_type_var.set(row[0][5])
-            self.pin2_var.set(row[0][6])
-            self.pin3_var.set(row[0][7])
-            self.pin4_var.set(row[0][8])
-            self.pin5_var.set(row[0][9])
-            self.pin6_var.set(row[0][10])
-            self.pin7_var.set(row[0][11])
-            self.pin8_var.set(row[0][12])
-            self.pin9_var.set(row[0][13])
-            self.pin10_var.set(row[0][14])
-            self.pin11_var.set(row[0][15])
-            self.pin12_var.set(row[0][16])
-            self.pin13_var.set(row[0][17])
-            self.pin14_var.set(row[0][18])
-            self.pin15_var.set(row[0][19])
-            self.pin16_var.set(row[0][20])
-            self.pin17_var.set(row[0][21])
-            self.pin18_var.set(row[0][22])
-            self.pin19_var.set(row[0][23])
-            #Show or hide the ip / com input fields
-            self.show_hide_ip_com()
-            self.logger.info("Updated all entry Widgets")
+        valid_status, input_data_list = self.get_and_validate_input_data()
+
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            controller_name = input_data_list[self.controller_name_input_widget_index]
+            controller_location :str = input_data_list[self.location_input_widget_index]
+            controller_type = input_data_list[self.type_input_widget_index]
+            controller_port = input_data_list[self.port_input_widget_index]
+            pin_config_list = input_data_list[self.gpio_pin_config_index]
+
+            #Save the data to the database
+            successful_save = self.__save_input_data(controller_name, controller_location, controller_type, controller_port, pin_config_list)
+
+            self.update_tree()
+
+            if successful_save == True:
+
+                #Clear All entry Widgets
+                self.input_frame.clear_all_entries()
+
+                #Set the state indicator to true - no tree item is selected
+                self.set_new_item_state(True)
+
+                self.logger.info("Saved Input Data to Database")
+
         else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-    
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Set the state indicator variable to True, indicating a new item is to be added
-        self.new_item = True
-        self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
-        #Clear All entry Widgets
-        self.controller_id_var.set("")
-        self.controller_name_var.set("")
-        self.loc_rem_var.set("")
-        self.ip_var.set("")
-        self.com_port_var.set("")
-        self.controller_type_var.set("")
-        self.controller_type_var.set("")
-        self.__set_combobox_defaults()
-        #Show or hide the ip / com input fields
-        self.show_hide_ip_com()
-        self.logger.info("Cleared all entry Widgets")
+    #Called when delete button is clicked
+    def del_btn_cmd(self):
+        """Custom delete function instead of using the one in BaseFrame, 
+        this is to handle deletion of Foreign key references properly."""
+        self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+        #Get the DB id of the selected treeview item
+        in_focus_db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
 
-        #Refresh Combobox Options
-        self.refresh_cboxs("null_event")
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self, updated_rows):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared gpio_config tree")
-
-        for row in updated_rows:
-            #Add items to the treeviewer, Indexes: 0=ID, 1=Message Group Name
-            #Format: (Parent=(iid), index) "" is the top level parent node
-            self.tree.insert("", tk.END, text=row[0], values=(row[1],)) 
-            self.logger.info(f"Added {row[1]} to the tree")
-        self.logger.info("Tree Updated")
-
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        self.logger.info("Save Button Clicked")
-        #Verify all entries populated
-        valid = self.__verify_input()
-        #Determine whether a new item or modifying existing
-        #Adding a new item
-        if self.new_item == True:
-            if valid == True:
-                self.logger.info("Adding New Item to Database")
-                #Get the value from the text entry widget
-                value = self.controller_name_var.get()
-                #Check if the entry box contains text
-                if value != "":
-                    #Add all the current entry data to the database
-                    self.db.add_controller(self.controller_name_var.get(), self.loc_rem_var.get(), self.ip_var.get(), self.com_port_var.get(), self.controller_type_var.get(), self.pin2_var.get(), self.pin3_var.get(), self.pin4_var.get(), self.pin5_var.get(), self.pin6_var.get(), self.pin7_var.get(), self.pin8_var.get(), self.pin9_var.get(), self.pin10_var.get(), self.pin11_var.get(), self.pin12_var.get(), self.pin13_var.get(), self.pin14_var.get(), self.pin15_var.get(), self.pin16_var.get(), self.pin17_var.get(), self.pin18_var.get(), self.pin19_var.get())
-                    #Refresh the tree
-                    updated_rows = self.db.get_current_table_data("controllers")
-                    self.__update_tree(updated_rows)
-                    #Clear all entry widget fields
-                    self.__clear_widgets()
-                else:
-                    self.logger.info("Value Empty - Nothing Added to Database")
-                
-
-        #Modifying existing item    
-        else:
-            #Get the value from the ID and name widgets
-            db_id = self.controller_id_var.get()
-            name = self.controller_name_var.get()
-            #Check if the entry box contains text
-            if valid == True:
-                self.logger.info("Modifing existing database entry")
-                self.logger.info(f"Updating database entry for controller: {name}, ID={db_id}")
-                #Update the existing entry in the database
-                #self.db.update_display_template(db_id, self.template_name_var.get(), self.ticker_var.get(), self.logo_var.get(), self.studio_name_var.get(), self.show_name_var.get(), self.time_var.get(), self.mic_live_var.get(), self.tx_ind_var.get(), self.cue_ind_var.get(), self.lin1_ind_var.get(), self.lin2_ind_var.get(), self.control_ind_var.get())
-                columns_dict = {"controller_name" :self.controller_name_var.get(), "controller_location" :self.loc_rem_var.get(), "controller_ip" :self.ip_var.get(), "controller_port" :self.com_port_var.get(), "controller_type" :self.controller_type_var.get(), "pin2" :self.pin2_var.get(), "pin3" :self.pin3_var.get(), "pin4" :self.pin4_var.get(), "pin5" :self.pin5_var.get(), "pin6" :self.pin6_var.get(), "pin7" :self.pin7_var.get(), "pin8" :self.pin8_var.get(), "pin9" :self.pin9_var.get(), "pin10" :self.pin10_var.get(), "pin11" :self.pin11_var.get(), "pin12" :self.pin12_var.get(), "pin13" :self.pin13_var.get(), "pin14" :self.pin14_var.get(), "pin15" :self.pin15_var.get(), "pin16" :self.pin16_var.get(), "pin17" :self.pin17_var.get(), "pin18" :self.pin18_var.get(), "pin19" :self.pin19_var.get()}
-                for column in columns_dict:
-                    self.logger.info(f"Updating column: {column} with {columns_dict[column]}")
-                    self.db.update_row("controllers", column, "controller_id", columns_dict[column], db_id)
-                
-                #Refresh the tree
-                updated_rows = self.db.get_current_table_data("controllers")
-                self.__update_tree(updated_rows)
-                #Clear all entry widget fields
-                self.__clear_widgets()
-
-            else:
-                self.logger.info("Value Empty - Nothing Added to Database")
-
-    #Removes an entry from the database
-    def __remove_controller(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
+        if in_focus_db_id != None:
+            #Confirm with the user they want to delete
+            confirmation = confirm_delete()
             if confirmation == True:
-                #Retrieve the id of the display template
-                db_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database
-                feedback = self.db.delete_row("controllers", "controller_id", db_id)
-                #Item is only deleted if there are no database integrity errors thrown
-                if feedback == True:
-                    self.logger.info(f"Deleted controller with ID={db_id} from the database")
-                    #Clear the entry widgets
-                    self.__clear_widgets()
-                    #Refresh the tree view
-                    updated_rows = self.db.get_current_table_data("controllers")
-                    self.__update_tree(updated_rows)
+                #Check GPIO Pins are not in use by any input triggers
+                controller_references = self.db.get_1column_data("input_trigger_id", "input_triggers", "controller_id", in_focus_db_id)
 
+                #If no references, start deletion
+                if controller_references == []:
+                
+                    #Delete mappping Foreign Key references
+                    feedback = self.db.delete_row("pin_modes", "controller_id", in_focus_db_id)
+                    
+                    if feedback == True:
+                        #Delete the item
+                        self.db.delete_row(self.table, self.id_column, in_focus_db_id)
+                        self.logger.info(f"Deleted rows with {self.id_column}: {in_focus_db_id} in table {self.table}")
+
+                        #Clear the input widgets
+                        self.input_frame.clear_all_entries()
+
+                        #Set the State indicator to True
+                        self.set_new_item_state(True)
+
+                        #Update the tree
+                        self.update_tree()
+                    else:
+                        #Warn the user the item cannot be deleted to maintain database integrity
+                        delete_warning(feedback)
                 else:
                     #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning(feedback)
+                    delete_warning(f"Cannot delete Controller, in use by input triggers:{controller_references}")
+
+    #Save input data to the database
+    def __save_input_data(self, controller_name, controller_location, controller_type, controller_port, pin_config_list):
+        """Saves input data to the database."""
+        #Variable returned when this function completes, signals is there were any errors saving
+        save_successful = True
+
+        #--------------------------------Saving a new item--------------------------------
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+            self.__save_new_item(controller_name, controller_location ,controller_port, controller_type, pin_config_list)
+
+        #--------------------------------Updating an existing item--------------------------------
         else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
+            self.logger.info("Updating existing database entry")
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            #Update the name location and port
+            self.db.update_row(self.table, "controller_name", self.id_column, controller_name, db_id)
+            self.db.update_row(self.table, "controller_location", self.id_column, controller_location, db_id)
+            self.db.update_row(self.table, "controller_port", self.id_column, controller_port, db_id)
+
+            #Get the controller_type from the database for comparison
+            current_controller_type = self.db.get_1column_data("controller_type", "controllers", "controller_id", db_id)[0]
+
+            #--------------------------------controller type is unchanged--------------------------------
+            if controller_type == current_controller_type:
+                self.logger.debug("Controller Type Unchanged")
+
+                #Update the pin modes - if any failed to update theyre ids are returned as a list
+                failed_update_pins = self.__save_pin_modes(pin_config_list, db_id)
+                if failed_update_pins != []:
+                    save_successful = False
+            #--------------------------------controller type is modified--------------------------------
+            else:
+                self.logger.debug("Controller Type Modified")
+
+                #Check if any of the pins are currently in use
+                in_use_status, in_use_pin_list = self.__check_pins_in_use(db_id)
+                self.logger.debug(f"Pins In use: {in_use_status}")
+
+                #If the pins are in use prompt the user and stop updating
+                if in_use_status == True:
+                    pin_modify_warning(in_use_pin_list)
+                    save_successful = False
+
+                #If the pins are not in use delete all pin_mappings and re-make
+                else:
+                    #Query the database for the pin_modes for the selected controller
+                    pin_mode_list = self.db.get_rows_condition_sort_asc("pin_modes", "controller_id", db_id, "pin_id")
+
+                    #Delete each pin_mapping
+                    for pin in pin_mode_list:
+                        pin_id = pin[1]
+                        status = self.db.delete_row_dual_condition("pin_modes", "controller_id", db_id, "pin_id", pin_id)
+                        self.logger.debug(f"Deleted Pin Mapping for pin {pin_id} for controller ID {db_id}, successful:{status}")
+
+                    #Update the controller type
+                    self.db.update_row(self.table, "controller_type", self.id_column, controller_type, db_id)
+
+                    #Add the new Pin mappings
+                    self.__add_new_pin_modes(db_id, controller_type, pin_config_list)
 
 
-    #Creates and adds GUI widgets to the frame
-    def __add_widgets(self):
-        #------------------------------GPIO CONFIG FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
-
-        add_btn = ctk.CTkButton(master=self, text="Add Controller", font=self.default_font, fg_color="green", command=lambda:self.__clear_widgets())
-        add_btn.grid(column=0, row=1, sticky="nsew")
-
-        del_btn = ctk.CTkButton(master=self, text="Remove Controller", font=self.default_font, fg_color="red", command=lambda:self.__remove_controller())
-        del_btn.grid(column=0, row=2, sticky="nsew")
-
-        #------------------------------GPIO CONFIG FRAME-CONTROLLER SETUP FRAME--------------------------------------------------
-        #Create a frame to contain settings about the individual client device
-        cntrl_setup_frame = ctk.CTkScrollableFrame(master=self, border_color="green", border_width=1)
-        cntrl_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
-
-        #Setup Columns / rows for cntrl_setup_frame
-
-        cntrl_setup_frame.columnconfigure(0, weight=0, pad=20)
-        cntrl_setup_frame.columnconfigure(1, weight=1, pad=20)
-        cntrl_setup_frame.columnconfigure(2, weight=1, pad=20)
-
-        for i in range(29):
-            cntrl_setup_frame.rowconfigure(i, weight=0, pad=10)
-
-        #------------------------------CONTROLLER SETUP FRAME WIDGETS--------------------------------------------------
-        #------------------------------Controller Attributes--------------------------------------------------
-        title1_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Controller Setup", font=self.default_font)
-        title1_label.grid(column=0, row=0, columnspan=3, sticky="ew")
-
-        ctrl_id_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Controller ID:", font=self.default_font)
-        ctrl_id_label.grid(column=0, row=1, sticky="w", padx=20)
-
-        ctrl_id_data_label = ctk.CTkLabel(master=cntrl_setup_frame, text="", font=self.default_font, textvariable=self.controller_id_var)
-        ctrl_id_data_label.grid(column=1, row=1, sticky="w", padx=20)
-
-        ctrl_name_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Controller Name:", font=self.default_font)
-        ctrl_name_label.grid(column=0, row=2, sticky="w", padx=20)
-
-        ctrl_name_entry = ctk.CTkEntry(master=cntrl_setup_frame, textvariable=self.controller_name_var, font=self.default_font)
-        ctrl_name_entry.grid(column=1, row=2, columnspan =2, sticky="ew", padx=20)
-
-        loc_rem_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Local / Remote:", font=self.default_font)
-        loc_rem_label.grid(column=0, row=3, sticky="w", padx=20)
-
-        loc_rem_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable=self.loc_rem_var, values=["Local"], state="readonly", command=lambda value:self.show_hide_ip_com(value), font=self.default_font, dropdown_font=self.default_font)
-        loc_rem_cbox.grid(column=1, row=3, columnspan =2, sticky="ew", padx=20)
-
-        self.ip_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Controller IP Address:", font=self.default_font)
-        #self.ip_label.grid(column=0, row=4)
-
-        self.ip_entry = ctk.CTkEntry(master=cntrl_setup_frame, textvariable=self.ip_var, font=self.default_font)
-        #self.ip_entry.grid(column=1, row=4, columnspan =2, sticky="ew", padx=20)
-        
-        self.com_label = ctk.CTkLabel(master=cntrl_setup_frame, text="COM Port:", font=self.default_font)
-        #self.com_label.grid(column=0, row=5)
-
-        #Values assigned to combobox usning event binding
-        self.com_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable=self.com_port_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        #self.com_cbox.grid(column=1, row=5, columnspan =2, sticky="ew", padx=20)
-
-        ctrl_type_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Controller Type:", font=self.default_font)
-        ctrl_type_label.grid(column=0, row=6, sticky="w", padx=20)
-
-        ctrl_type_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable=self.controller_type_var, values=["Arduino Uno"], state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        ctrl_type_cbox.grid(column=1, row=6, columnspan =2, sticky="ew", padx=20)
-
-
-
-        ##------------------------------GPIO Configuration--------------------------------------------------
-        title2_label = ctk.CTkLabel(master=cntrl_setup_frame, text="GPIO Configuration", font=self.default_font, pady=15)
-        title2_label.grid(column=0, row=7, columnspan=3, sticky="ew")
-
-        #List containing the possible modes a GPIO pin can be set to - In the future outputs will be added
-        gpio_setting = ["in", "disabled"]
-
-        p2_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 2:", font=self.default_font)
-        p2_label.grid(column=0, row=8, sticky="w", padx=100)
-
-        p2_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable=self.pin2_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p2_cbox.grid(column=1, row=8, columnspan =2, sticky="ew", padx=20)
-
-        p3_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 3:", font=self.default_font)
-        p3_label.grid(column=0, row=9, sticky="w", padx=100)
-
-        p3_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable=self.pin3_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p3_cbox.grid(column=1, row=9, columnspan =2, sticky="ew", padx=20)
-
-        p4_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 4:", font=self.default_font)
-        p4_label.grid(column=0, row=10, sticky="w", padx=100)
-
-        p4_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin4_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p4_cbox.grid(column=1, row=10, columnspan =2, sticky="ew", padx=20)
-
-        p5_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 5:", font=self.default_font)
-        p5_label.grid(column=0, row=11, sticky="w", padx=100)
-
-        p5_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin5_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p5_cbox.grid(column=1, row=11, columnspan =2, sticky="ew", padx=20)
-
-        p6_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 6:", font=self.default_font)
-        p6_label.grid(column=0, row=12, sticky="w", padx=100)
-
-        p6_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin6_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p6_cbox.grid(column=1, row=12, columnspan =2, sticky="ew", padx=20)
-
-        p7_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 7:", font=self.default_font)
-        p7_label.grid(column=0, row=13, sticky="w", padx=100)
-
-        p7_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin7_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p7_cbox.grid(column=1, row=13, columnspan =2, sticky="ew", padx=20)
-
-        p8_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 8:", font=self.default_font)
-        p8_label.grid(column=0, row=14, sticky="w", padx=100)
-
-        p8_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin8_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p8_cbox.grid(column=1, row=14, columnspan =2, sticky="ew", padx=20)
-
-        p9_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 9:", font=self.default_font)
-        p9_label.grid(column=0, row=15, sticky="w", padx=100)
-
-        p9_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin9_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p9_cbox.grid(column=1, row=15, columnspan =2, sticky="ew", padx=20)
-
-        p10_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 10:", font=self.default_font)
-        p10_label.grid(column=0, row=16, sticky="w", padx=100)
-
-        p10_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin10_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p10_cbox.grid(column=1, row=16, columnspan =2, sticky="ew", padx=20)
-
-        p11_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 11:", font=self.default_font)
-        p11_label.grid(column=0, row=17, sticky="w", padx=100)
-
-        p11_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin11_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p11_cbox.grid(column=1, row=17, columnspan =2, sticky="ew", padx=20)
-
-        p12_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 12:", font=self.default_font)
-        p12_label.grid(column=0, row=18, sticky="w", padx=100)
-
-        p12_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin12_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p12_cbox.grid(column=1, row=18, columnspan =2, sticky="ew", padx=20)
-
-        p13_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 13:", font=self.default_font)
-        p13_label.grid(column=0, row=19, sticky="w", padx=100)
-
-        p13_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin13_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p13_cbox.grid(column=1, row=19, columnspan =2, sticky="ew", padx=20)
-
-        p14_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 14:", font=self.default_font)
-        p14_label.grid(column=0, row=20, sticky="w", padx=100)
-
-        p14_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin14_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p14_cbox.grid(column=1, row=20, columnspan =2, sticky="ew", padx=20)
-
-        p15_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 15:", font=self.default_font)
-        p15_label.grid(column=0, row=21, sticky="w", padx=100)
-
-        p15_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin15_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p15_cbox.grid(column=1, row=21, columnspan =2, sticky="ew", padx=20)
-
-        p16_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 16:", font=self.default_font)
-        p16_label.grid(column=0, row=22, sticky="w", padx=100)
-
-        p16_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin16_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p16_cbox.grid(column=1, row=22, columnspan =2, sticky="ew", padx=20)
-
-        p17_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 17:", font=self.default_font)
-        p17_label.grid(column=0, row=23, sticky="w", padx=100)
-
-        p17_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin17_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p17_cbox.grid(column=1, row=23, columnspan =2, sticky="ew", padx=20)
-
-        p18_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 18:", font=self.default_font)
-        p18_label.grid(column=0, row=24, sticky="w", padx=100)
-
-        p18_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin18_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p18_cbox.grid(column=1, row=24, columnspan =2, sticky="ew", padx=20)
-
-        p19_label = ctk.CTkLabel(master=cntrl_setup_frame, text="Pin 19:", font=self.default_font)
-        p19_label.grid(column=0, row=25, sticky="w", padx=100)
-
-        p19_cbox = ctk.CTkComboBox(master=cntrl_setup_frame, variable = self.pin19_var, values=gpio_setting, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        p19_cbox.grid(column=1, row=25, columnspan =2, sticky="ew", padx=20)
-        
-        save_btn = ctk.CTkButton(master=self, text="Save", font=self.default_font, fg_color="green", command=lambda:self.__save_entry_data())
-        save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
-
-     #Refreshes combobox options
+        return save_successful
     
-    def refresh_cboxs(self, event):
-        self.logger.info("Refreshing device_config combobox options")
+    def __save_new_item(self, controller_name, controller_location ,controller_port, controller_type, pin_config_list:list):
+        #Add the validated data to the database
+        self.db.add_controller(controller_name, controller_location, None, controller_port, controller_type)
 
-        #Clear the list of serial ports
-        self.serial_ports_list.clear()
+        #Get the id of the new controller
+        controller_id = self.db.get_last_insert_row_id()
+
+        #Add the new pin modes to the database
+        self.__add_new_pin_modes(controller_id, controller_type, pin_config_list)
+
+    def __add_new_pin_modes(self, controller_id, controller_type, pin_config_list:list):
+        #Get the start and end pin indexes for the selected controller type
+        controller_type_row = self.db.get_current_row_data("controller_types", "model", controller_type)[0]
+        start_pin_index = controller_type_row[3]
+        end_pin_index = controller_type_row[4]
+
+        #Add pin modes to the database
+        for i in range(start_pin_index, end_pin_index):
+            pin_id = pin_config_list[i][0]
+            pin_mode = pin_config_list[i][1]
+            self.db.add_pin_mode(controller_id, pin_id, pin_mode)
+    
+    def __save_pin_modes(self, pin_config_list:list, controller_id) -> list:
+        #Any pins not updated will be referenced here
+        self.pins_not_updated_list = []
+
+        for pin_config_row in pin_config_list:
+            pin_id = pin_config_row[0]
+            pin_mode = pin_config_row[1]
+
+            #Check if the value has changed
+            database_pin_mode = self.db.get_1column_data_dual_condition("pin_mode", "controller_id", controller_id, "pin_id", pin_id, "pin_modes")[0]
+
+            self.logger.debug(f"Pin:{pin_id}, selection: {pin_mode}, database: {database_pin_mode}")
+
+            #If the pin_mode has changed
+            if database_pin_mode != pin_mode:
+                if database_pin_mode == "input":
+                    #Check the pin is not currently configured as an input trigger
+                    input_trigger_id_list = self.db.get_1column_data_dual_condition("input_trigger_id", "controller_id", controller_id, "address", pin_id, "input_triggers")
+                    if input_trigger_id_list == []:
+                        #Update the pin mode
+                        self.logger.debug(f"Updating entry for pin:{pin_id}, with mode:{pin_mode}")
+                        self.db.update_row_dual_condition("pin_modes", "pin_mode", pin_mode, "pin_id", pin_id, "controller_id", controller_id)
+                    else:
+                        self.pins_not_updated_list.append(pin_id)
+
+                elif database_pin_mode == "output":
+                    #Check the pin is not currently configured as an output trigger
+                    output_trigger_id_list = self.db.get_1column_data_dual_condition("output_trigger_id", "controller_id", controller_id, "address", pin_id, "output_triggers")
+                    if output_trigger_id_list == []:
+                        #Update the pin mode
+                        self.logger.debug(f"Updating entry for pin:{pin_id}, with mode:{pin_mode}")
+                        self.db.update_row_dual_condition("pin_modes", "pin_mode", pin_mode, "pin_id", pin_id, "controller_id", controller_id)
+                    else:
+                        self.pins_not_updated_list.append(pin_id)
+
+                elif database_pin_mode == "disabled":
+                    #Update the pin mode
+                    self.logger.debug(f"Updating entry for pin:{pin_id}, with mode:{pin_mode}")
+                    self.db.update_row_dual_condition("pin_modes", "pin_mode", pin_mode, "pin_id", pin_id, "controller_id", controller_id)
+
+                else:
+                    self.logger.error(f"Invalid pin mode: {pin_mode} used in database for pin: {pin_id}")
+
+            #If the pin mode has not changed, do nothing
+            else:
+                self.logger.debug(f"Pin mode for pin {pin_id} unchanged.")
+
+        #If some pins failed to update, notify the user and return false
+        if self.pins_not_updated_list != []:
+            pin_modify_warning(self.pins_not_updated_list)
+
+        return self.pins_not_updated_list
+            
+    def __check_pins_in_use(self, controller_id):
+        """Checks if the pin mode mapings for a specified controller_id are configured in input or output triggers.
+        Returns True if they are configured, Flase if not. Also returns a list of pins that are in use."""
+
+        self.logger.debug(f"Checking if pins for controller id {controller_id} are currently in use")
+
+        #Blank list to store pin_id's in use
+        self.pins_in_use_list = []
+            
+        #Query the database for the pin_modes
+        pin_mode_list = self.db.get_rows_condition_sort_asc("pin_modes", "controller_id", controller_id, "pin_id")
+
+        for pin in pin_mode_list:
+            pin_id = pin[1]
+            pin_mode = pin[2]
+
+            if pin_mode == "input":
+                #Check the pin is not currently configured as an input trigger or output trigger
+                input_trigger_id_list = self.db.get_1column_data_dual_condition("input_trigger_id", "controller_id", controller_id, "address", pin_id, "input_triggers")
+                if input_trigger_id_list != []:
+                    #Add the pin id to the in_use list
+                    self.pins_in_use_list.append(pin_id)
+                    
+            elif pin_mode == "output":
+                #Check the pin is not currently configured as an input trigger or output trigger
+                output_trigger_id_list = self.db.get_1column_data_dual_condition("output_trigger_id", "controller_id", controller_id, "address", pin_id, "output_triggers")
+                if output_trigger_id_list != []:
+                    #Add the pin id to the in_use list
+                    self.pins_in_use_list.append(pin_id)
+
+        self.logger.debug(f"Pins Currently in use: {self.pins_in_use_list}")
+
+        if self.pins_in_use_list != []:
+            #Pins are in use
+            return True ,self.pins_in_use_list
+        else:
+            #Pins are not in use
+            return False ,self.pins_in_use_list
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            name = item_data_list[1]
+            location = item_data_list[2]
+            port = item_data_list[4]
+            type = item_data_list[5]
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(name, location, type, port)
+
+            #Query the database for pin modes for the selected controller
+            pin_modes_list = self.db.get_rows_condition_sort_asc("pin_modes", "controller_id", db_id, "pin_id")
+            self.logger.debug(f"Pin modes for selected controller:{pin_modes_list}")
+
+            #Build the GPIO config window based on the type
+            self.__build_gpio_pin_window("null_event")
+
+            #Get the pin config widget frame
+            pin_config : GPIO_Pin_Config = self.input_frame.get_widget_object(5)
+
+            #Set the radio button selections based on the stored database values
+            pin_config.set_data(pin_modes_list)
+
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+
+#-------------------------------------------------------------------------------------------------------------------
+
+    def __set_type_combobox_values(self):
+        #Query the database
+        controller_types_rows = self.db.get_current_table_data("controller_types")
+        self.logger.debug(f"Controller_types_rows: {controller_types_rows}")
+
+        #Remove the first row, this a system defualt row that mnust not be altered by the user
+        controller_types_rows.pop(0)
+
+        #Blank list to hold combobox values
+        combobox_values = []
+
+        #Extract the model from each row
+        for row in controller_types_rows:
+            combobox_values.append(row[1])
+
+        #Set the values of the type combobox
+        self.input_frame.set_combobox_values(self.type_input_widget_index, combobox_values)
+
+    def __set_port_combobox_values(self):
+        #Create a blank list to hold the serial ports
+        self.serial_ports_list = []
 
         for port in comports():
             print(port)
@@ -963,1680 +756,1767 @@ class GPIO_Config(BaseFrame):
             #Split the string to extract the address
             port_address = port_string.split()[0]
 
-            #Check if the port is in use, if it is we don't add it to the list
-            query_result = self.db.get_1column_data("controller_port", "controllers", "controller_port", port_address)
+            #Query the database to find ports already configured
+            query_result = self.db.get_1column_data("controller_id", "controllers", "controller_port", port_address)
+            print(f"Query Result:{query_result}")
+
             if query_result == []:
-                #Add the address to the list
+                #Add the address to the list only if it's not already configured
                 self.serial_ports_list.append(port_address)
 
-        self.logger.info(f"Available serial ports:{self.serial_ports_list}")        
-        #Assign the values to the combobox
-        self.com_cbox.configure(values=self.serial_ports_list)
+        self.logger.info(f"Available serial ports:{self.serial_ports_list}")   
 
-    #Shows / hides ip / com entry fields based on selctions
-    def show_hide_ip_com(self, value=None):
-        #Get the selection from the local / remote comobox
-        selection = self.loc_rem_var.get()
-        #If local selected remove ip address input fields, show com ports
-        if selection == "Local":
-            self.ip_label.grid_forget()
-            self.ip_entry.grid_forget()
-            self.com_label.grid(column=0, row=5, sticky="w", padx=20)
-            self.com_cbox.grid(column=1, row=5, columnspan =2, sticky="ew", padx=20)
-            self.ip_var.set("")
-            self.logger.debug("Local Selected - IP=hidden, COM=show")
-        #If remote selected show ip address input fields, hide com port
-        if selection == "Remote":
-            self.ip_label.grid(column=0, row=4, sticky="w", padx=20)
-            self.ip_entry.grid(column=1, row=4, columnspan =2, sticky="ew", padx=20)
-            self.com_label.grid_forget()
-            self.com_cbox.grid_forget()
-            self.com_port_var.set("")
-            self.logger.debug("Remote Selected - IP=show, COM=hidden")
-        #If nothing selected hide all
-        if selection == "":
-            self.ip_label.grid_forget()
-            self.ip_entry.grid_forget()
-            self.com_label.grid_forget()
-            self.com_cbox.grid_forget()
-            self.ip_var.set("")
-            self.com_port_var.set("")
-            self.logger.debug("Nothing Selected - IP=hidden, COM=hidden")
+        #Set the values of the type combobox
+        self.input_frame.set_combobox_values(self.port_input_widget_index, self.serial_ports_list)
 
-    def __verify_input(self):
-        valid = True
-        self.logger.info("Validating input fields")
-        if self.controller_name_var.get() == "":
-            self.logger.info("Controller Name Empty")
-            valid = False
-        if self.loc_rem_var.get() == "":
-            self.logger.info("Local / Remote Empty")
-            valid = False
-        if ((self.ip_var.get() == "") or (Validation.validate_ip(str(self.ip_var.get())) == False)) & (self.loc_rem_var.get() == "Remote"):    #TODO:Verify
-            self.logger.info("Controller IP Empty or invalid format")
-            valid = False
-        if (self.com_port_var.get() == "") & (self.loc_rem_var.get() == "Local"):
-            self.logger.info("Controller Port Empty")
-            valid = False
-        if self.controller_type_var.get() == "":
-            self.logger.info("Controller Type Empty")
-            valid = False
-        for pin in self.pin_var_list:
-            if pin.get() == "":
-                self.logger.info("One or more Pin Modes have not been set")
-                valid = False
-                break
-        self.logger.debug(f"Valid = {valid}")
-        return valid
+    def __build_gpio_pin_window(self, event):
+        """Builds the GPIO Config Frame depending on the controller type selected."""
+
+        #Get the value in the type combobox
+        controller_type = self.input_frame.get_data(2)
+        self.logger.debug(f"Controller Type: {controller_type}")
+
+        #Lookup the controller type to get the pin data
+        pin_data = self.db.get_current_row_data("controller_types", "model", controller_type)[0]
+        start_pin_index = pin_data[3]
+        end_pin_index = pin_data[4]
+        start_input_only_index = pin_data[5]
+        end_input_only_index = pin_data[6]
+
+        self.logger.debug(f"Pin data: {pin_data}")
+
+        #Get the pin config widget frame
+        pin_config : GPIO_Pin_Config = self.input_frame.get_widget_object(5)
+
+        #Build the pin config rows
+        pin_config.build_rows(start_pin_index, end_pin_index, start_input_only_index, end_input_only_index)
+        
+class Input_Triggers(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
+        row2 = Input_Row("Controller:", "combobox", "not_null")
+        self.controller_input_widget_index = 1
+        row3= Input_Row("Address:", "combobox", "not_null_osc_command_input_trigger")
+        self.address_widget_index = 2
+
+        row_list = [row1, row2, row3]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Input Triggers", "input_triggers", "input_trigger_name", "input_trigger_id", row_list)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_combobox_values()
+        self.update_tree()
     
-    def __set_combobox_defaults(self):
-        for combobox_var in self.pin_var_list:
-            combobox_var : StringVar
-            combobox_var.set("disabled")
+ 
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        self.input_frame.set_combobox_command(self.controller_input_widget_index, self.__controller_combobox_callback)
+        
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-class Display_Templates(BaseFrame):
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-        self.parent = parent
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            input_trigger_name = input_data_list[self.name_input_widget_index]
+            controller_id_name :str = input_data_list[self.controller_input_widget_index]
+            controller_id = controller_id_name.split(":")[0]
+            address = input_data_list[self.address_widget_index]
 
-        #GUI Variables - to allow dynamic updating
-        self.template_id_var = StringVar()
-        self.template_name_var = StringVar()
-        self.layout_var = StringVar()
-        self.logo_var = StringVar()
-        self.clock_var = StringVar()
-        self.indicator_number_var = StringVar()
+            #Save the data to the database
+            self.__save_input_data(input_trigger_name, controller_id, address, False)
 
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
+            self.input_frame.clear_all_entries()
 
-        #Add the display widgets to the frame
-        self.__add_widgets()
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
 
-        #Store a list of the indicator widgets to allow looping
-        self.indicator_list = [
-            self.indicator_1,
-            self.indicator_2,
-            self.indicator_3,
-            self.indicator_4,
-            self.indicator_5,
-            self.indicator_6
-        ]
+            self.logger.info("Saved Input Data to Database")
 
-        #Refresh the tree view with the current database data so it's not empty on startup
-        self.logger.info("Retrieving current display_templates table data")
-        updated_rows = self.db.get_current_table_data("display_templates")
+            self.update_tree()
 
-        self.logger.info("Updating display_templates tree")
-        self.__update_tree(updated_rows)
+        else:
+            #Show a message box stating cannot save data
+            invalid_data_warning()
+
+    #Save input data to the database
+    def __save_input_data(self, input_trigger_name, controller_id, address, state):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Add the validated data to the database
+            self.db.add_input_trigger(input_trigger_name, controller_id, address, state)
+
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            self.db.update_row(self.table, "input_trigger_name", self.id_column, input_trigger_name, db_id)
+            self.db.update_row(self.table, "controller_id", self.id_column, controller_id, db_id)
+            self.db.update_row(self.table, "address", self.id_column, address, db_id)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            name = item_data_list[1]
+            controller_id = item_data_list[2]
+            address = item_data_list[3]
+
+            #Get the name of the controller from the database
+            controller_name = self.db.get_1column_data("controller_name", "controllers", "controller_id", controller_id)[0]
+
+            #Combine the controller id and name together
+            controller_id_name = f"{controller_id}:{controller_name}"
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(name, controller_id_name, address)
+            
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            #Set the values of the address combobox
+            self.__set_address_combobox_values()
+
+            #Set address combobox read only state
+            self.__set_address_combobox_state()
+
+            self.logger.info("Updated Input widgets")
+
+#-------------------------------------------------------------------------------------------------------------------
+
+    def __set_address_combobox_values(self):
+        """Sets the address combobox values when the controller combobox value has been selected."""
+
+        #Retrieve the controller combobox selected value
+        selected_controller:str = self.input_frame.get_data(self.controller_input_widget_index)
+        selected_controller_id, selected_controller_name = selected_controller.split(":")
+
+        #If selected controller id is 0, this is the network controller, address combobox can therefore be free-text enabled.
+        if selected_controller_id == "0":
+            self.input_frame.set_combobox_values(self.address_widget_index, [])
+
+        else:
+            #Lookup which pins are configured as inputs for the selected controller
+            self.logger.debug(f"Looking up configured input pins for selected controller.")
+            input_pins_int_list = self.db.get_1column_data_dual_condition("pin_id", "controller_id", selected_controller_id, "pin_mode", "input", "pin_modes")
+
+            #Convert the pin integers to strings
+            input_pins_list = []
+            for input_pin_int in input_pins_int_list:
+                input_pins_list.append(str(input_pin_int))
+
+            #Lookup if any of these pins have already been configured in another input trigger
+            configured_pins_list = self.db.get_1column_data("address", "input_triggers", "controller_id", selected_controller_id)
+            self.logger.debug(f"Pins already assigned to input triggers: {configured_pins_list}")
+            
+            #Remove assigned pins from the input_pins list
+            for pin_id in configured_pins_list:
+                input_pins_list.remove(pin_id)
+
+            self.logger.debug(f"{selected_controller_name} has input pins: {input_pins_int_list}, Pin's: {input_pins_list} are available to be assigned to an input trigger.")
+            self.input_frame.set_combobox_values(self.address_widget_index, input_pins_list)
+    
+    def __set_address_combobox_state(self):
+        """Sets the readonly state of the address combobox based on the value selected in the controller combobox."""
+
+        #Get the current value in the controller combobox
+        controller_id_name = self.input_frame.get_data(1)
+
+        if controller_id_name == "0:Network":
+            #Set readonly state to false
+            self.input_frame.change_combobox_readonly_state(self.address_widget_index, "normal")
+            self.logger.debug(f"Set Address Combobox to readonly state to False")
+        else:
+            #Set readonly state to true
+            self.input_frame.change_combobox_readonly_state(self.address_widget_index, "readonly")
+            self.logger.debug(f"Set Address Combobox to readonly state to True")
+        
+    def __controller_combobox_callback(self, event):
+        """Calback called when the controller combobox value is selected."""
+        #Clear the Address Combobox
+        self.input_frame.clear_entry(self.address_widget_index)
+
+        #Set the values of the address combobox
+        self.__set_address_combobox_values()
+
+        #Set address combobox read only state
+        self.__set_address_combobox_state()
+
+    def update_combobox_values(self):
+        """Set the selection list of values for the comboboxes."""
+
+        #Blank list to hold concatenated id and controller names
+        combobox_values = []
+
+        #Query the database
+        controller_list = self.db.get_2column_data("controller_id", "controller_name", "controllers")
+
+        #Extract the id and name of each controller and then concatenate into a single string
+        for controller in controller_list:
+            id = controller[0]
+            name = controller[1]
+            combined = f"{id}:{name}"
+            combobox_values.append(combined)
+
+        self.set_combobox_values(self.controller_input_widget_index, combobox_values)
+
+class Input_Logics(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+    
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
+
+        row2 = Input_Row("High Condition:", "combobox", "not_null")
+        self.high_condition_widget_index = 1
+
+        row3 = Input_Row("Source Input Triggers", "title", "n/a")
+        
+        row4 = Input_Row(None, "dual_selection_columns", "n/a", ["Input Triggers", "Active Input Triggers"])
+        self.dual_selection_columns_index = 3
+        
+        row_list = [row1, row2, row3, row4]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Input Logics", "input_logics", "input_logic_name", "input_logic_id", row_list)
+
+        #Hard coding combobox values for high_condition, these do not change.
+        self.set_combobox_values(1 ,["AND", "NAND", "OR", "NOR"])
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+        #Overriding the default delete command in base frame for proper handling of foreign key references
+        self.set_delete_btn_command(self.del_btn_cmd)
+
+        #Set on raise callback - this is the callback triggered when this frame is raised to the top
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Set widget Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+        #Update the selection tree with current data
+        self.__update_selection_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    #This function is called by the GUI  Menu Buttons when this frame is selected
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_tree()
+        self.__update_selection_tree()
+
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
 
         #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        #Set the state indicator variable to False, indicating an item is to be modified
-        self.new_item = False
-        self.logger.info("Set State Indicator to False - an existing item is being modified")
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update teh widgets if a valid tree item is selected
-        if selected != '':
-            #Retrieve the id of the messaging group
-            db_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item
-            row = self.db.get_current_row_data("display_templates", "display_template_id", db_id)
-            self.logger.info("Populating entry fields with data for selected tree viewer item")
-            #Populate the fields with the data
-            self.template_id_var.set(row[0][0])
-            self.template_name_var.set(row[0][1])
-            self.layout_var.set(row[0][2])
-            self.change_number_indicators_state(row[0][2])
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-            logo_id = row[0][3]
-            #Retrieve logo name from the database
-            logo_name = self.db.get_1column_data("image_name", "images", "image_id", logo_id)[0]
-            self.logger.debug(f"Logo name:{logo_name}")
-            self.logo_var.set(logo_name)
-            
-            self.clock_var.set(row[0][4])
-            self.indicator_number_var.set(row[0][5])
-            self.show_hide_indicators(row[0][5])
-            self.indicator_1.set_inputs(row[0][6], row[0][7], row[0][8])
-            self.indicator_2.set_inputs(row[0][9], row[0][10], row[0][11])
-            self.indicator_3.set_inputs(row[0][12], row[0][13], row[0][14])
-            self.indicator_4.set_inputs(row[0][15], row[0][16], row[0][17])
-            self.indicator_5.set_inputs(row[0][18], row[0][19], row[0][20])
-            self.indicator_6.set_inputs(row[0][21], row[0][22], row[0][23])
-            self.logger.info("Updated all entry Widgets")
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            input_logic_name = input_data_list[self.name_input_widget_index]
+            high_condition = input_data_list[self.high_condition_widget_index]
+            input_trigger_list = input_data_list[self.dual_selection_columns_index]
+
+            #Save the data to the database
+            self.__save_input_data(input_logic_name, high_condition, input_trigger_list)
+
+            self.input_frame.clear_all_entries()
+
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
+
+            self.logger.info("Saved Input Data to Database")
+
+            self.update_tree()
+
         else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-    
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Set the state indicator variable to True, indicating a new item is to be added
-        self.new_item = True
-        self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
-        #Clear All entry Widgets
-        self.template_id_var.set("")
-        self.template_name_var.set("")
-        self.layout_var.set("")
-        self.logo_var.set("")
-        self.clock_var.set("")
-        self.change_number_indicators_state("")
-        self.indicator_1.clear_inputs()
-        self.indicator_2.clear_inputs()
-        self.indicator_3.clear_inputs()
-        self.indicator_4.clear_inputs()
-        self.indicator_5.clear_inputs()
-        self.indicator_6.clear_inputs()
-        
-        self.logger.info("Cleared all entry Widgets")
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self, updated_rows):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared display_template tree")
+    def del_btn_cmd(self):
+          """Custom delete function instead of using the one in BaseFrame, 
+          this is to handle deletion of Foreign key references properly."""
+          self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+          #Get the DB id of the selected treeview item
+          in_focus_db_id = self.tree.get_in_focus_item_db_id()
+          self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
 
-        for row in updated_rows:
-            #Add items to the treeviewer, Indexes: 0=ID, 1=Message Group Name
-            #Format: (Parent=(iid), index) "" is the top level parent node
-            self.tree.insert("", tk.END, text=row[0], values=(row[1],)) 
-            self.logger.info(f"Added {row[1]} to the tree")
-        self.logger.info("Tree Updated")
+          if in_focus_db_id != None:
+               #Confirm with the user they want to delete
+               confirmation = confirm_delete()
 
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        self.logger.info("Save Button Clicked")
-        #Verify all entries populated
-        valid = self.__verify_input()
-        #Determine whether a new item or modifying existing
-        #Adding a new item
-        if valid == True:
-            if self.new_item == True:
-                self.logger.info("Adding New Item to Database")
-                #Generate a timestamp
-                timestamp = datetime.datetime.now()
-                #Get the image_id using the image_name from the combobox
-                image_id = self.image_dict[self.logo_var.get()]
-                #Add all the current entry data to the database
-                self.db.add_display_template(self.template_name_var.get(), self.layout_var.get(), image_id, self.clock_var.get(), self.indicator_number_var.get(), self.indicator_1.get_inputs()[0], self.indicator_1.get_inputs()[1], self.indicator_1.get_inputs()[2], self.indicator_2.get_inputs()[0], self.indicator_2.get_inputs()[1], self.indicator_2.get_inputs()[2], self.indicator_3.get_inputs()[0], self.indicator_3.get_inputs()[1], self.indicator_3.get_inputs()[2], self.indicator_4.get_inputs()[0], self.indicator_4.get_inputs()[1], self.indicator_4.get_inputs()[2], self.indicator_5.get_inputs()[0], self.indicator_5.get_inputs()[1], self.indicator_5.get_inputs()[2], self.indicator_6.get_inputs()[0], self.indicator_6.get_inputs()[1], self.indicator_6.get_inputs()[2], timestamp)
-                self.logger.info("Added new item to database")
+               if confirmation == True:
+                    #Check not in use by a widget
+                    widget_feedback = True
+                    rows = self.db.get_current_row_data("indicator", "input_logic_id", in_focus_db_id)
 
-            #Modifying existing item    
-            else:
-                #Get the value from the ID and name widgets
-                db_id = self.template_id_var.get()
-                name = self.template_name_var.get()
+                    if rows != []:
+                        widget_feedback = False
+                            
 
-                self.logger.info("Modifing existing database entry")
-                self.logger.info(f"Updating database entry for display template: {name}, ID={db_id}")
-                #Get the image_id from the image name
-                image_id = self.image_dict[self.logo_var.get()]
-                #Update the existing entry in the database
-                columns_dict = {"display_template_name": self.template_name_var.get(),  
-                            "layout": self.layout_var.get(),
-                            "logo_image_id": image_id, 
-                            "clock_type": self.clock_var.get(), 
-                            "indicators_displayed": self.indicator_number_var.get(), 
-                            "indicator_1_label": self.indicator_1.get_inputs()[0], 
-                            "indicator_1_flash": self.indicator_1.get_inputs()[1], 
-                            "indicator_1_colour": self.indicator_1.get_inputs()[2], 
-                            "indicator_2_label": self.indicator_2.get_inputs()[0], 
-                            "indicator_2_flash": self.indicator_2.get_inputs()[1], 
-                            "indicator_2_colour": self.indicator_2.get_inputs()[2],
-                            "indicator_3_label": self.indicator_3.get_inputs()[0], 
-                            "indicator_3_flash": self.indicator_3.get_inputs()[1], 
-                            "indicator_3_colour": self.indicator_3.get_inputs()[2],
-                            "indicator_4_label": self.indicator_4.get_inputs()[0], 
-                            "indicator_4_flash": self.indicator_4.get_inputs()[1], 
-                            "indicator_4_colour": self.indicator_4.get_inputs()[2],
-                            "indicator_5_label": self.indicator_5.get_inputs()[0], 
-                            "indicator_5_flash": self.indicator_5.get_inputs()[1], 
-                            "indicator_5_colour": self.indicator_5.get_inputs()[2],
-                            "indicator_6_label": self.indicator_6.get_inputs()[0], 
-                            "indicator_6_flash": self.indicator_6.get_inputs()[1], 
-                            "indicator_6_colour": self.indicator_6.get_inputs()[2],
-                            "last_changed" : datetime.datetime.now()
-                            }
-                for column in columns_dict:
-                    self.logger.info(f"Updating column: {column} with {columns_dict[column]}")
-                    self.db.update_row("display_templates", column, "display_template_id", columns_dict[column], db_id)
-                
-            #Refresh the tree
-            updated_rows = self.db.get_current_table_data("display_templates")
-            self.__update_tree(updated_rows)
-            #Clear all entry widget fields
-            self.__clear_widgets()
-
-
-    #Removes an entry from the database
-    def __remove_display_template(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
-            if confirmation == True:
-                #Retrieve the id of the display template
-                db_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database
-                feedback = self.db.delete_row("display_templates", "display_template_id", db_id)
-                #Item is only deleted if there are no database integrity errors thrown
-                if feedback == True:
-                    self.logger.info(f"Deleted display template with ID={db_id} from the database")
-                    #Clear the entry widgets
-                    self.__clear_widgets()
-                    #Refresh the tree view
-                    updated_rows = self.db.get_current_table_data("display_templates")
-                    self.__update_tree(updated_rows)
-                else:
-                    #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning(feedback)
-        else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
-
-    #Creates and adds GUI widgets to the frame
-    def __add_widgets(self):
-        #------------------------------DEVICE CONFIG FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
-
-        add_btn = ctk.CTkButton(self, text="Add Template", font=self.default_font, fg_color="green", command=lambda:self.__clear_widgets())
-        add_btn.grid(column=0, row=1, sticky="nsew")
-
-        del_btn = ctk.CTkButton(self, text="Remove Template", font=self.default_font, fg_color="red", command=lambda:self.__remove_display_template())
-        del_btn.grid(column=0, row=2, sticky="nsew")
-
-        #------------------------------DEVICE CONFIG FRAME-DEVICE SETUP FRAME--------------------------------------------------
-        #Create a frame to contain settings about the individual client device
-        self.display_setup_frame = ctk.CTkScrollableFrame(self, border_color="green", border_width=1)
-        self.display_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
-
-        #Setup Columns / rows for self.display_setup_frame
-
-        self.display_setup_frame.columnconfigure(0, weight=0, pad=20)
-        self.display_setup_frame.columnconfigure(1, weight=1, pad=20)
-        self.display_setup_frame.columnconfigure(2, weight=1, pad=20)
-
-        for i in range(18):
-            self.display_setup_frame.rowconfigure(i, weight=0, pad=10)
-
-        #------------------------------DEVICE SETUP FRAME WIDGETS--------------------------------------------------
-        #------------------------------Device Attributes--------------------------------------------------
-
-        title2_label = ctk.CTkLabel(master=self.display_setup_frame, text="Display Template", font=self.default_font)
-        title2_label.grid(column=0, row=0, columnspan=3, sticky="ew")
-
-        template_id_label = ctk.CTkLabel(master=self.display_setup_frame, text="Template ID:", font=self.default_font)
-        template_id_label.grid(column=0, row=1, sticky="w", padx=20)
-
-        template_id_data = ctk.CTkLabel(master=self.display_setup_frame, text="", textvariable=self.template_id_var, font=self.default_font)
-        template_id_data.grid(column=1, row=1, sticky="w", padx=20)
-
-        template_name_label = ctk.CTkLabel(master=self.display_setup_frame, text="Template Name:", font=self.default_font)
-        template_name_label.grid(column=0, row=2, sticky="w", padx=20)
-
-        template_name_entry = ctk.CTkEntry(master=self.display_setup_frame, textvariable=self.template_name_var, font=self.default_font)
-        template_name_entry.grid(column=1, row=2, columnspan =2, sticky="ew", padx=20)
-        #Layout
-        layout_label = ctk.CTkLabel(master=self.display_setup_frame, text="Display Layout:", font=self.default_font)
-        layout_label.grid(column=0, row=3, sticky="w", padx=20)
-
-        layout_cbox = ctk.CTkComboBox(master=self.display_setup_frame, state="readonly", variable=self.layout_var, values=["Clock With Indicators", "Fullscreen Clock"],  command=lambda value:self.change_number_indicators_state(value), font=self.default_font, dropdown_font=self.default_font)
-        layout_cbox.grid(column=1, row=3, columnspan =2, sticky="ew", padx=20)
-
-        #Logo
-        logo_label = ctk.CTkLabel(master=self.display_setup_frame, text="Logo:", font=self.default_font)
-        logo_label.grid(column=0, row=4, sticky="w", padx=20)
-
-        self.logo_cbox = ctk.CTkComboBox(self.display_setup_frame, font=self.default_font, state="readonly", variable=self.logo_var, dropdown_font=self.default_font)
-        self.logo_cbox.grid(column=1, row=4, columnspan=2, sticky='ew', padx=20)
-
-        #Clock
-        clock_type_label = ctk.CTkLabel(master=self.display_setup_frame, text="Clock Type:", font=self.default_font)
-        clock_type_label.grid(column=0, row=5, sticky="w", padx=20)
-
-        clock_type_cbox = ctk.CTkComboBox(master=self.display_setup_frame, variable=self.clock_var, values=["Studio Clock", "Analogue Clock"], font=self.default_font, dropdown_font=self.default_font, state="readonly")
-        clock_type_cbox.grid(column=1, row=5, columnspan =2, sticky="ew", padx=20)
-        #Select Number of Indicators
-        number_indicators_label = ctk.CTkLabel(master=self.display_setup_frame, text="Select Number Of Indicators to Display:", font=self.default_font)
-        number_indicators_label.grid(column=0, row=6, sticky="w", padx=20)
-
-        self.number_indicators_cbox = ctk.CTkComboBox(master=self.display_setup_frame, values=["1","2","3","4","5","6"], variable=self.indicator_number_var, command=lambda value:self.show_hide_indicators(value), font=self.default_font, dropdown_font=self.default_font, state="readonly")
-        self.number_indicators_cbox.grid(column=1, row=6, columnspan =2, sticky="ew", padx=20)
-
-        #Indicators
-        #Enable/ Disable - Flashing / Non-Flashing - Label - On Colour
-        indicator_label = ctk.CTkLabel(master=self.display_setup_frame, text="Indicators", font=self.default_font)
-        indicator_label.grid(column=0, row=7, columnspan=3, sticky="ew", pady=15)
-        #Indicator Settings
-        self.indicator_1 = IndicatorSettings(self.display_setup_frame, "Indicator 1:")
-        #self.indicator_1.grid(column=0, row=9, columnspan =3, sticky="nsew", padx=20)
-        self.indicator_2 = IndicatorSettings(self.display_setup_frame, "Indicator 2:")
-        #self.indicator_2.grid(column=0, row=10, columnspan =3, sticky="nsew", padx=20)
-        self.indicator_3 = IndicatorSettings(self.display_setup_frame, "Indicator 3:")
-        #self.indicator_3.grid(column=0, row=11, columnspan =3, sticky="nsew", padx=20)
-        self.indicator_4 = IndicatorSettings(self.display_setup_frame, "Indicator 4:")
-        #self.indicator_4.grid(column=0, row=12, columnspan =3, sticky="nsew", padx=20)
-        self.indicator_5 = IndicatorSettings(self.display_setup_frame, "Indicator 5:")
-        #self.indicator_5.grid(column=0, row=13, columnspan =3, sticky="nsew", padx=20)
-        self.indicator_6 = IndicatorSettings(self.display_setup_frame, "Indicator 6:")
-        #self.indicator_6.grid(column=0, row=14, columnspan =3, sticky="nsew", padx=20)
-
-        #Save Button
-        save_btn = ctk.CTkButton(master=self, text="Save", fg_color="green", command=lambda:self.__save_entry_data(), font=self.default_font)
-        save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
-
-    def select_logo(self):
-        path = filedialog.askopenfilename()
-        print(path)
-        self.logo_var.set(path)
-
-    def show_hide_indicators(self, number_of_indicators:str):
-        """Displays the indicator settings for the number of indicators selected."""
-        indicator_list = [self.indicator_1, self.indicator_2, self.indicator_3, self.indicator_4, self.indicator_5, self.indicator_6]
-
-        for indicator in indicator_list:
-            indicator.clear_inputs()
-            indicator.grid_forget()
-            
-
-        for i in range(int(number_of_indicators)):
-            indicator_list[i].grid(column=0, row=(i+10), columnspan =3, sticky="nsew", padx=20)
-            #Added to fix bug where indicator dropdowns populated blank until hovered with mouse
-            self.update()
-
-    def change_number_indicators_state(self, display_layout:str):
-        """Changes values of the Number of indicators combobox based on selected dsiplay layout."""
-        if display_layout == "Fullscreen Clock":
-            #Set number of indicators to display = 0
-            self.indicator_number_var.set("0")
-            #Clear the values
-            self.number_indicators_cbox.configure(values=[])
-            #Clear Indicator setttings
-            self.show_hide_indicators("0")
-            
-        else:
-            #Set number of indicators to display = 0
-            self.indicator_number_var.set("")
-            #Clear the values
-            self.number_indicators_cbox.configure(values=["1","2","3","4","5","6"])
-            #Clear Indicator setttings
-            self.show_hide_indicators("0")
-            
-    def convert_to_blob(self, path:str):
-        #Open the image file and convert to binary data
-        binary_logo = open(path, "rb")
-        blob_logo = binary_logo.read()
-        return blob_logo
-    
-    def convert_from_blob(self, blob):
-        blob_logo = open("gui/logo_temp.jpg", "wb")
-        blob_logo.write(blob)
-
-    def refresh_cboxs(self, event):
-        self.logger.info("Refreshing device_config combobox options")
-        #Query the database for all images
-        image_table = self.db.get_2column_data("image_id", "image_name", "images")
-        self.logger.debug(f"Image_table: {image_table}")
-        #Convert table data to a dictionary and list
-        self.image_dict = {} #Will store reference to the id of each image
-        self.image_list = [] #Will hold all image names to show in dropdown
-
-        #Extract name and id from each row in the table puttin them in the list and dictionary
-        for item in image_table:
-            id = item[0]
-            name = item[1]
-            self.image_dict[name] = id
-            self.image_list.append(name)
-
-        #Set combobox values
-        self.logo_cbox.configure(values = self.image_list)
-
-    def __verify_input(self) -> bool:
-        if self.template_name_var.get() == "":
-            self.logger.info("Display Template name empty.")
-            return False
-        if self.layout_var.get() == "":
-            self.logger.info("Display Layout empty.")
-            return False
-        if self.logo_var.get() == "":
-            self.logger.info("Logo empty.")
-            return False
-        if self.clock_var.get == "":
-            self.logger.info("Clock Type empty.")
-            return False
-        if self.indicator_number_var.get() == "":
-            self.logger.info("Number of indicators empty.")
-            return False
-        
-        #Get the number of indicator setting rows displayed onscreen
-        number_of_indicators = int(self.indicator_number_var.get())
-        #Check that all settings have been set
-        for i in range(number_of_indicators):
-            input1, input2, input3 = self.indicator_list[i].get_inputs()
-            if input1 == "" or input2 == "" or input3 == "":
-                self.logger.info("One or more indicator settings empty.")
-                return False
-        #If all fields populated return True
-        return True
-        
-class Messaging_Groups(BaseFrame):
-
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
-
-        #GUI Variables - to allow dynamic updating
-        self.message_group_name_var = StringVar()
-        self.message_group_id_var = StringVar()
-
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
-
-        self.__add_widgets()
-
-        #Refresh the tree view with the current database data so it's not empty on startup
-        updated_rows = self.db.get_current_table_data("messaging_groups")
-        self.__update_tree(updated_rows)
-
-        #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
-    
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        #Set the state indicator variable to False, indicating an item is to be modified
-        self.new_item = False
-        self.logger.info("Set State Indicator to False - an existing item is being modified")
-
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update teh widgets if a valid tree item is selected
-        if selected != '':
-            #Retrieve the id of the messaging group
-            db_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item
-            row = self.db.get_current_row_data("messaging_groups", "messaging_group_id", db_id)
-            self.logger.info("Populating entry fields with data for selected tree viewer item")
-            #Populate the fields with the data
-            self.message_group_id_var.set(row[0][0]) #ID
-            self.message_group_name_var.set(row[0][1]) #Name
-            self.logger.info("Updated all entry Widgets")
-        else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-    
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Set the state indicator variable to True, indicating a new item is to be added
-        self.new_item = True
-        self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
-
-        #Clear All entry Widgets
-        self.message_group_id_var.set("")
-        self.message_group_name_var.set("")
-        self.logger.info("Cleared all entry Widgets")
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self, updated_rows):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared messaging_groups tree")
-
-        for row in updated_rows:
-            #Add items to the treeviewer, Indexes: 0=ID, 1=Message Group Name
-            #Format: (Parent=(iid), index) "" is the top level parent node
-            self.tree.insert("", tk.END, text=row[0], values=(row[1],)) 
-            self.logger.info(f"Added {row[1]} to the tree")
-        self.logger.info("Tree Updated")
-
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        #Get the value from the text entry widget
-        message_group_name = self.message_group_name_var.get()
-        #Check if the entry box contains text
-        if message_group_name != "":
-            #Determine whether a new item or modifying existing
-            #Adding a new item
-            if self.new_item == True:
-                    self.logger.info("Adding New Item to Database")
-                    #Build the osc address for the messaging group, this is used to send messages to the group
-                    osc_address = "/" + message_group_name + "/ticker"
-                    #Add the value to the database table
-                    self.db.add_messaging_group(message_group_name, osc_address)
-                    self.logger.info("Added new item to database")
+                    if widget_feedback == True:
+                        #Delete mappping Foreign Key references
+                        feedback = self.db.delete_row("input_logic_mapping", "input_logic_id", in_focus_db_id)
                     
-            #Modifying existing item    
-            else:
-                #Get the value from the ID and name widgets
-                db_id = self.message_group_id_var.get()
+                        if feedback == True:
+                            #Delete the item
+                            feedback = self.db.delete_row(self.table, self.id_column, in_focus_db_id)
 
-                self.logger.info("Modifing existing database entry")
-                #Build the updated osc address for the messaging group, this is used to send messages to the group
-                osc_address = "/" + message_group_name + "/ticker"
-                #Update the existing entry in the database
-                self.db.update_row("messaging_groups", "messaging_group_name", "messaging_group_id", message_group_name, db_id)
-                self.db.update_row("messaging_groups", "osc_address", "messaging_group_id", osc_address, db_id)
-            
-            #Refresh the tree
-            updated_rows = self.db.get_current_table_data("messaging_groups")
-            self.__update_tree(updated_rows)
-            #Clear all entry widget fields
-            self.__clear_widgets()
+                            if feedback == True:
+                                self.logger.info(f"Deleted rows with {self.id_column}: {in_focus_db_id} in table {self.table}")
 
+                                #Clear the input widgets
+                                self.input_frame.clear_all_entries()
+
+                                #Set the State indicator to True
+                                self.set_new_item_state(True)
+
+                                #Update the tree
+                                self.update_tree()
+
+                            else:
+                                #Warn the user the item cannot be deleted to maintain database integrity
+                                delete_warning(feedback)
+
+                        else:
+                            #Warn the user the item cannot be deleted to maintain database integrity
+                            delete_warning(feedback)
+
+                    else:
+                         #Warn the user the item cannot be deleted to maintain database integrity
+                         delete_warning("Input Logic in use by a widget instance.")
+
+    #Save input data to the database
+    def __save_input_data(self, input_logic_name, high_condition, input_triggers_list):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Add the validated data to the database
+            self.db.add_input_logic(input_logic_name, high_condition)
+
+            #Get the id of the newly added row
+            #row_id = self.db.get_1column_data("input_logic_id", "input_logics", "input_logic_name", input_logic_name)[0]
+            db_id = self.db.get_last_insert_row_id()
+            self.logger.debug(f"Input Logic saved, database ID: {db_id}")
+
+            #Add the input logic mappings
+            for mapping in input_triggers_list:
+                input_logic_id :str = db_id
+                input_trigger_id = mapping[0]
+                self.db.add_input_logic_mapping(input_logic_id, input_trigger_id)
+
+        #Updating an existing item
         else:
-            self.logger.info("Message Group Name Empty")
+            self.logger.info("Updating existing database entry")
 
-    #Removes an entry from the database
-    def __remove_messaging_group(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
-            if confirmation == True:
-                #Retrieve the id of the messaging group
-                db_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database
-                feedback = self.db.delete_row("messaging_groups", "messaging_group_id", db_id)
-                if feedback == True:
-                    self.logger.info(f"Deleted messaging group with ID={db_id} from the database")
-                    #Clear the entry widgets
-                    self.__clear_widgets()
-                    #Refresh the tree view
-                    updated_rows = self.db.get_current_table_data("messaging_groups")
-                    self.__update_tree(updated_rows)
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            #Update the input logic row
+            self.logger.debug(f"Updating Input Logics Row with id {db_id}")
+            self.db.update_row(self.table, "input_logic_name", self.id_column, input_logic_name, db_id)
+            self.db.update_row(self.table, "high_condition", self.id_column, high_condition, db_id)
+
+            #Update the Input Logic mappings
+            self.logger.debug(f"Retrieving Input logic mappings for Input Logic {db_id}")
+            db_mappings_list : list = self.db.get_1column_data("input_trigger_id", "input_logic_mapping", "input_logic_id", db_id)
+            add_mappings_list : list = []
+
+            self.logger.debug(f"Comparing Database mappings with those currently selected by the user.")
+            for mapping in input_triggers_list:
+                input_trigger_id = mapping[0]
+                if input_trigger_id in db_mappings_list:
+                    db_mappings_list.remove(input_trigger_id)
                 else:
-                    #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning(feedback)
-        else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
+                    add_mappings_list.append(input_trigger_id)
 
-    #Creates and adds GUI widgets to the frame
-    def __add_widgets(self):
-        #------------------------------DEVICE CONFIG FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
+            remove_mappings_list = db_mappings_list
 
-        add_btn = ctk.CTkButton(self, text="Add Group", fg_color="green", command=lambda:self.__clear_widgets(), font=self.default_font)
-        add_btn.grid(column=0, row=1, sticky="nsew")
+            #Add
+            self.logger.debug(f"Adding new mappings to the database")
+            for input_trigger_id in add_mappings_list:
+                self.logger.debug(f"Adding mapping with Input Logic ID {db_id} and Input Trigger ID {input_trigger_id}")
+                self.db.add_input_logic_mapping(db_id, input_trigger_id)
+            #Remove
+            self.logger.debug("Removing redundant mappings from the database")
+            for input_trigger_id in remove_mappings_list:
+                self.logger.debug(f"Removing mapping with Input Logic ID {db_id} and Input Trigger ID {input_trigger_id}")
+                self.db.delete_row_dual_condition("input_logic_mapping", "input_logic_id", db_id, "input_trigger_id", input_trigger_id)
 
-        del_btn = ctk.CTkButton(self, text="Remove Group", fg_color="red", command=lambda:self.__remove_messaging_group(), font=self.default_font)
-        del_btn.grid(column=0, row=2, sticky="nsew")
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
 
-        #------------------------------DEVICE CONFIG FRAME-DEVICE SETUP FRAME--------------------------------------------------
-        #Create a frame to contain settings about the individual client device
-        self.messaging_setup_frame = ctk.CTkScrollableFrame(self, border_color="green", border_width=1)
-        self.messaging_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
 
-        #Setup Columns / rows for self.messaging_setup_frame
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
 
-        self.messaging_setup_frame.columnconfigure(0, weight=0, pad=20)
-        self.messaging_setup_frame.columnconfigure(1, weight=1, pad=20)
-        self.messaging_setup_frame.columnconfigure(2, weight=1, pad=20)
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
 
-        for i in range(29):
-            self.messaging_setup_frame.rowconfigure(i, weight=0, pad=10)
+            #Extract the data from the item data list
+            name = item_data_list[1]
+            high_condition = item_data_list[2]
 
-        #------------------------------DEVICE SETUP FRAME WIDGETS--------------------------------------------------
-        #------------------------------Device Attributes--------------------------------------------------
-        title1_label = ctk.CTkLabel(master=self.messaging_setup_frame, text="Messaging Group Creation", font=self.default_font)
-        title1_label.grid(column=0, row=0, columnspan=3, sticky="ew")
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(name, high_condition)
 
-        id_label = ctk.CTkLabel(master=self.messaging_setup_frame, text="Messaging Group ID:", font=self.default_font)
-        id_label.grid(column=0, row=1, sticky="w", padx=20)
+            #Get the input trigger mappings from the database
+            self.logger.debug(f"Retrieving Input trigger mappings for Input_Logic {db_id}")
+            input_trigger_id_list = self.db.get_1column_data("input_trigger_id", "input_logic_mapping", "input_logic_id", db_id)
 
-        id_data_label = ctk.CTkLabel(master=self.messaging_setup_frame, text="", textvariable=self.message_group_id_var, font=self.default_font)
-        id_data_label.grid(column=1, row=1, sticky="w", padx=20)
+            #Get the name of each Input Trigger ID and add to a list
+            input_trigger_name_list = []
+            for input_trigger_id in input_trigger_id_list:
+                self.logger.debug(f"Looking up name associated to Input Trigger ID: {input_trigger_id}")
+                input_trigger_name = self.db.get_1column_data("input_trigger_name", "input_triggers", "input_trigger_id", input_trigger_id)[0]
+                input_trigger_name_list.append(input_trigger_name)
 
-        name_label = ctk.CTkLabel(master=self.messaging_setup_frame, text="Messaging Group Name:", font=self.default_font)
-        name_label.grid(column=0, row=2, sticky="w", padx=20)
+            #Combine the id and name lists
+            self.logger.debug(f"Combining ID an Name lists")
+            input_trigger_id_name_list = combine_lists(input_trigger_id_list, input_trigger_name_list)
+            self.logger.debug(f"Combined List result: {input_trigger_id_name_list}")
 
-        self.name_entry = ctk.CTkEntry(master=self.messaging_setup_frame, textvariable=self.message_group_name_var, font=self.default_font)
-        self.name_entry.grid(column=1, row=2, columnspan =2, sticky="ew", padx=20)
+            #Add the mappings to the selection column tree
+            self.logger.debug(f"Updating Selection Column with combined list data.")
+            dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
+            dual_selection_column_widget.set_column_values(1, input_trigger_id_name_list)
 
-        save_btn = ctk.CTkButton(master=self, text="Save", fg_color="green", command=lambda:self.__save_entry_data(), font=self.default_font)
-        save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
 
-class Server_Config(BaseFrame):
+            self.logger.info("Updated Input widgets")
 
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
+#-------------------------------------------------------------------------------------------------------------------
 
-        #Variables
-        self.server_ip_var = tk.StringVar()
-
-        self.__add_widgets()
-
-    def __add_widgets(self):
-        #------------------------------MAIN FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        #tree = CustomTree(self)
-        #tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
-
-        #add_btn = ctk.CTkButton(self, text="Add Group", fg_color="green", font=self.default_font)
-        #add_btn.grid(column=0, row=1, sticky="nsew")
-
-        #del_btn = ctk.CTkButton(self, text="Remove Group", fg_color="red", font=self.default_font)
-        #del_btn.grid(column=0, row=2, sticky="nsew")
-
-        #------------------------------MAIN FRAME-IP CONFIG FRAME--------------------------------------------------
-        #Create a frame to contain settings server ip
-        self.ip_setup_frame = ctk.CTkFrame(self, border_color="green", border_width=1)
-        self.ip_setup_frame.grid(column=0, row=0, columnspan=4, sticky="nsew")
-
-        #Setup Columns / rows for self.ip_setup_frame
-
-        self.ip_setup_frame.columnconfigure(0, weight=0, pad=20)
-        self.ip_setup_frame.columnconfigure(1, weight=1, pad=20)
-        self.ip_setup_frame.columnconfigure(2, weight=1, pad=20)
-
-        for i in range(29):
-            self.ip_setup_frame.rowconfigure(i, weight=0, pad=10)
-
-        #------------------------------MAIN FRAME-SERVER CONFIG FRAME--------------------------------------------------
+    def __update_selection_tree(self):
+        """Updates the Dual Selection Tree with current database values."""
+        self.logger.debug("Updating the Dual Selection Tree with current database values.")
+        dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
         
-        #Create a frame to contain settings about the individual client device
-        self.server_config_frame = ctk.CTkFrame(self, border_color="green", border_width=1)
-        self.server_config_frame.grid(column=0, row=0, columnspan=4, sticky="nsew")
+        input_trigger_rows = self.db.get_2column_data("input_trigger_id", "input_trigger_name", "input_triggers")
+        dual_selection_column_widget.set_column_values(0, input_trigger_rows)
+ 
+class Output_Logics(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+    
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
 
-        #Setup Columns / rows for self.server_config_frame
+        row2 = Input_Row("Source Input Logic:", "combobox", "not_null")
+        self.source_input_logic_widget_index = 1
 
-        self.server_config_frame.columnconfigure(0, weight=0, pad=20)
-        self.server_config_frame.columnconfigure(1, weight=1, pad=20)
-        self.server_config_frame.columnconfigure(2, weight=1, pad=20)
+        row3 = Input_Row("Target Output Triggers", "title", "n/a")
+        
+        row4 = Input_Row(None, "dual_selection_columns", "n/a", ["Output Triggers", "Active Output Triggers"])
+        self.dual_selection_columns_index = 3
+        
+        row_list = [row1, row2, row3, row4]
 
-        for i in range(29):
-            self.server_config_frame.rowconfigure(i, weight=0, pad=10)
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Output Logics", "output_logics", "output_logic_name", "output_logic_id", row_list)
 
-        self.frames_list = [self.server_config_frame, self.ip_setup_frame]
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+        #Overriding the default delete command in base frame for proper handling of foreign key references
+        self.set_delete_btn_command(self.del_btn_cmd)
 
-        #------------------------------IP CONFIG FRAME WIDGETS--------------------------------------------------
-        ip_config_title_label = ctk.CTkLabel(master=self.ip_setup_frame, text="Server IP Configuration", font=self.default_font)
-        ip_config_title_label.grid(column=0, row=0, columnspan=3, sticky="")
+        #Set on raise callback - this is the callback triggered when this frame is raised to the top
+        self.set_on_raise_callback(self.menu_select_callbacks)
 
-        ip_label = ctk.CTkLabel(master=self.ip_setup_frame, text="Server IP", font=self.default_font)
-        ip_label.grid(column=0, row=1, sticky="w", padx=20)
+        #Set widget Bindings
+        self.__set_bindings()
 
-        self.ip_combobox = ctk.CTkComboBox(master=self.ip_setup_frame, state="readonly", variable=self.server_ip_var, font=self.default_font, dropdown_font=self.default_font)
-        self.ip_combobox.grid(column=2, row=1, columnspan =1, sticky="ew", padx=20)
+        #Update treeviewer with currrent data
+        self.update_tree()
 
-        #Save Button
-        self.save_btn = ctk.CTkButton(master=self, text="Save", fg_color="green", command=lambda:self.__save_ip_entry_data(), font=self.default_font)
+        #Update the selection tree with current data
+        self.__update_selection_tree()
 
-        #Back Button
-        self.back_btn = ctk.CTkButton(master=self, text="Back", fg_color="red", command=lambda:self.__show_server_config_frame(), font=self.default_font)
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    #This function is called by the GUI  Menu Buttons when this frame is selected
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
 
-        #------------------------------SERVER CONFIG FRAME WIDGETS--------------------------------------------------
-        title1_label = ctk.CTkLabel(master=self.server_config_frame, text="Server Configuration", font=self.default_font)
-        title1_label.grid(column=0, row=0, columnspan=3, sticky="")
+        self.update_tree()
+        self.update_combobox_values()
+        self.__update_selection_tree()
 
-        initialise_label = ctk.CTkLabel(master=self.server_config_frame, text="Initialise Database", font=self.default_font)
-        initialise_label.grid(column=0, row=1, sticky="w", padx=20)
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
 
-        initialise_btn = ctk.CTkButton(master=self.server_config_frame, text="Initialise", command= lambda:(self.__initialise_database_warn()), font=self.default_font)
-        initialise_btn.grid(column=2, row=1, columnspan =1, sticky="ew", padx=20)
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-        backup_label = ctk.CTkLabel(master=self.server_config_frame, text="Backup Configuration", font=self.default_font)
-        backup_label.grid(column=0, row=2, sticky="w", padx=20)
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        backup_btn = ctk.CTkButton(master=self.server_config_frame, text="Backup", command= lambda:(self.__backup_database()), font=self.default_font)
-        backup_btn.grid(column=2, row=2, columnspan =1, sticky="ew", padx=20)
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-        restore_label = ctk.CTkLabel(master=self.server_config_frame, text="Restore Configuration", font=self.default_font)
-        restore_label.grid(column=0, row=3, sticky="w", padx=20)
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            input_logic_name = input_data_list[self.name_input_widget_index]
+            source_input_logic_id_name = input_data_list[self.source_input_logic_widget_index]
+            source_input_logic_id = source_input_logic_id_name.split(":")[0]
+            output_trigger_list = input_data_list[self.dual_selection_columns_index]
 
-        restore_btn = ctk.CTkButton(master=self.server_config_frame, text="Restore", command= lambda:(self.__restore_database()), font=self.default_font)
-        restore_btn.grid(column=2, row=3, columnspan =1, sticky="ew", padx=20)
+            #Save the data to the database
+            self.__save_input_data(input_logic_name, source_input_logic_id, output_trigger_list, False)
 
-        ip_label = ctk.CTkLabel(master=self.server_config_frame, text="Set Server IP", font=self.default_font)
-        ip_label.grid(column=0, row=4, sticky="w", padx=20)
+            self.input_frame.clear_all_entries()
 
-        ip_btn = ctk.CTkButton(master=self.server_config_frame, text="IP Settings", command= lambda:(self.__show_ip_config_frame()), font=self.default_font)
-        ip_btn.grid(column=2, row=4, columnspan =1, sticky="ew", padx=20)
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
 
-    def __initialise_database_warn(self):
-        answer = messagebox.askokcancel("!DANGER! Database Initialisation !DANGER!", "Are you sure you want to initialise the Database? Doing so will clear all data!")
-        if answer == True:
-            self.logger.info("User confirmed database is to be initialised!")
-            self.db.initialise_database()
-            messagebox.showinfo("Database Initialised", "The database has been initialised, please re-launch config tool.")
-            quit()
+            self.logger.info("Saved Input Data to Database")
+
+            self.update_tree()
+
         else:
-            self.logger.info("User aborted Database Initialisation")
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
-    def __backup_database(self):
-        try:
-            #Copy the current working database to a seperat file
-            self.db.backup_db()
-            #Open a browser window to copy the backup file to external location
-            self.logger.info("Asking user to specify backup save location.")
-            path = filedialog.asksaveasfilename()
-            #Copy the backup file to the chosen location
-            self.logger.info("Copying backup file to user specified path.")
-            shutil.copy("./database/backup_rds_db", path)
-            self.logger.info("Backup Complete")
-            messagebox.showinfo("Database Saved", "The database has been successfully backed up.")
-        except FileNotFoundError:
-            self.logger.info("Backup Unsuccessful")
-            messagebox.showinfo("Database Backup Fail", "The database was not able to be backed up, a valid path was not selected.")
-        except Exception as e:
-            self.logger.info("Backup Unsuccessful")
-            messagebox.showinfo("Database Backup Fail", "The database was not able to be backed up, reason:{e}")
+    def del_btn_cmd(self):
+          """Custom delete function instead of using the one in BaseFrame, 
+          this is to handle deletion of Foreign key references properly."""
+          self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+          #Get the DB id of the selected treeview item
+          in_focus_db_id = self.tree.get_in_focus_item_db_id()
+          self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
 
-
-
-    def __restore_database(self):
-        answer = messagebox.askokcancel("Restore Database Backup", "Are you sure you wish to restore the database?\n Doing so will completley erase the current database.")
-        if answer == True:
-            try:
-                #Close the connection to the database
-                self.db.close_connection()
-                #Get the path to the backup file from the user
-                path = filedialog.askopenfilename()
-                if path != "":
-                    self.logger.info(path)
-                    #Rename to current db file name.old
-                    self.logger.info("Renaming current database rds_db.old")
-                    os.rename("database/rds_db", "database/rds_db.old")
-                    #Copy the file specified by the user into the current working dir and rename rds_db
-                    self.logger.info("Importing backup db and renaming rds_db")
-                    shutil.copy(path, "./database/rds_db")
+          if in_focus_db_id != None:
+               #Confirm with the user they want to delete
+               confirmation = confirm_delete()
+               if confirmation == True:
                     
-                    messagebox.showinfo("Restore Database Backup", "Database Successfully Restored, please restart the application.")
-                    quit()
-            except Exception as e:
-                self.logger.info("Restore Unsuccessful")
-                messagebox.showinfo("Database Restore Fail", f"The database was not able to be restored, reason:{e}")
-            finally:
-                #Reconect to the database
-                self.db.connect()
+                    #Delete mappping Foreign Key references
+                    feedback = self.db.delete_row("output_logic_mapping", "output_logic_id", in_focus_db_id)
+                    
+                    if feedback == True:
+                        #Delete the item
+                        self.db.delete_row(self.table, self.id_column, in_focus_db_id)
+                        self.logger.info(f"Deleted rows with {self.id_column}: {in_focus_db_id} in table {self.table}")
 
+                        #Clear the input widgets
+                        self.input_frame.clear_all_entries()
 
+                        #Set the State indicator to True
+                        self.set_new_item_state(True)
+
+                        #Update the tree
+                        self.update_tree()
+                    else:
+                         #Warn the user the item cannot be deleted to maintain database integrity
+                         delete_warning(feedback)
+
+    #Save input data to the database
+    def __save_input_data(self, output_logic_name, source_input_logic_id, output_triggers_list, state):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Add the validated data to the database
+            self.logger.debug(f"Output Logic Name: {output_logic_name}, Input_logic_id:{source_input_logic_id}, state:{state}")
+            self.db.add_output_logic(output_logic_name, source_input_logic_id, state)
+
+            #Get the id of the newly added row
+            db_id = self.db.get_last_insert_row_id()
+            self.logger.debug(f"Output Logic saved, database ID: {db_id}")
+
+            #Add the output logic mappings
+            for mapping in output_triggers_list:
+                output_logic_id :str = db_id
+                output_trigger_id = mapping[0]
+                self.db.add_output_logic_mapping(output_logic_id, output_trigger_id)
+
+        #Updating an existing item
         else:
-            self.logger.debug("User aborted database restore.")
-            
-    def __raise_frame(self, frame_number):
-        frame = self.frames_list[frame_number]
-        self.logger.debug(f"Raising frame:{frame}")
-        frame.tkraise()
+            self.logger.info("Updating existing database entry")
 
-    def __show_ip_config_frame(self):
-        self.__populate_ip_combobox()
-        self.back_btn.grid(column=1, row=1, sticky="ns", columnspan=1, rowspan=2, pady=20)
-        self.save_btn.grid(column=3, row=1, sticky="ns", columnspan=1, rowspan=2, pady=20)
-        self.__raise_frame(1)
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
 
-    def __show_server_config_frame(self):
-        self.back_btn.grid_forget()
-        self.save_btn.grid_forget()
-        self.__raise_frame(0)
+            #Update the output logic row
+            self.logger.debug(f"Updating Input Logics Row with id {db_id}")
+            self.db.update_row(self.table, "output_logic_name", self.id_column, output_logic_name, db_id)
+            self.db.update_row(self.table, "input_logic_id", self.id_column, source_input_logic_id, db_id)
 
-    def __save_ip_entry_data(self):
-        server_ip = self.server_ip_var.get()
+            #Update the Output Logic mappings
+            self.logger.debug(f"Retrieving Output logic mappings for Output Logic {db_id}")
+            db_mappings_list : list = self.db.get_1column_data("output_trigger_id", "output_logic_mapping", "output_logic_id", db_id)
+            add_mappings_list : list = []
 
-        settings_dict = {"server_ip":server_ip}
-
-        write_dict_to_file(settings_dict, "server/settings.json")
-        
-        self.__show_server_config_frame()
-
-    def __populate_ip_combobox(self):
-        #Read Settings file
-        settings_dict = open_json_file("server/settings.json")
-        #Only set ip's if settings file exists - otherwise defaults are used
-        if settings_dict != False:
-            self.server_ip_var.set(settings_dict["server_ip"])
-            
-        ip_list=get_machine_ip()
-        self.ip_combobox.configure(values = ip_list)
-
-class Image_Store(BaseFrame):
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
-
-        #GUI Variables - to allow dynamic updating
-        self.image_name_var = StringVar()
-        self.image_id_var = StringVar()
-
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
-
-        #Add widgets to the frame
-        self.__add_widgets()
-
-        #Refresh the tree view with the current database data so it's not empty on startup
-        self.__update_tree()
-
-        #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
-    
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update the widgets if a valid tree item is selected
-        if selected != '':
-            #Retrieve the id of the image
-            image_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item
-            image_data = self.db.get_current_row_data("images", "image_id", image_id)[0]
-            self.logger.info("Populating entry fields with data for selected tree viewer item")
-            #Populate the fields with the data
-            self.viewer_frame.set_image_id(image_data[0])
-            self.viewer_frame.set_image_name(image_data[1])
-            self.viewer_frame.update_logo_preview(image_data[2])
-            self.logger.info("Updated all entry Widgets")
-
-            #Raise the image Viewer Frame
-            self.__switch_to_view_frame()
-        else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-    
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Clear All entry Widgets
-        self.editor_frame.clear_image_preview()
-        self.viewer_frame.clear_image_preview()
-        self.viewer_frame.set_image_id("")
-        self.viewer_frame.set_image_name("")
-        self.logger.info("Cleared all entry Widgets")
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.debug(f"Deleted {row} from the tree")
-        self.logger.info("Cleared messaging_groups tree")
-
-        updated_rows = self.db.get_2column_data("image_id", "image_name", "images")
-
-        for row in updated_rows:
-            #Add items to the treeviewer, Indexes: 0=ID, 1=Message Group Name
-            #Format: (Parent=(iid), index) "" is the top level parent node
-            self.tree.insert("", tk.END, text=row[0], values=(row[1],)) 
-            self.logger.info(f"Added {row[1]} to the tree")
-        self.logger.info("Tree Updated")
-
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        self.logger.info("Saving image to Database")
-        #Get the path of the image file
-        path = self.editor_frame.get_image_path()
-        #Get name of image file from path
-        image_name = os.path.basename(path)
-
-        #If the path is not empty
-        if path != "":
-            #Convert image to a binary object
-            blob_image = self.convert_to_blob(path)
-            #Save image to database
-            self.db.add_image(image_name, blob_image)
-
-            self.logger.info(f"Saved image: {path} to Database")
-
-            #Clear input fields
-            self.__clear_widgets()
-            #Raise Viewer Frame
-            self.__switch_to_view_frame()
-            #Update Tree
-            self.__update_tree()
-        else:
-            self.logger.warning("No image selected - Abort save to database")
-
-
-    def convert_to_blob(self, path:str):
-        #Open the image file and convert to binary data
-        binary_logo = open(path, "rb")
-        blob_logo : bytes = binary_logo.read()
-        return blob_logo
-
-    #Removes an entry from the database
-    def __remove_image(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
-            if confirmation == True:
-                #Retrieve the id of the image
-                image_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database
-                feedback = self.db.delete_row("images", "image_id", image_id)
-                if feedback == True:
-                    self.logger.info(f"Deleted image with ID={image_id} from the database")
-                    #Clear the entry widgets
-                    self.__clear_widgets()
-                    #Refresh the tree view
-                    self.__update_tree()
+            self.logger.debug(f"Comparing Database mappings with those currently selected by the user.")
+            for mapping in output_triggers_list:
+                output_trigger_id = mapping[0]
+                if output_trigger_id in db_mappings_list:
+                    db_mappings_list.remove(output_trigger_id)
                 else:
-                    #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning(feedback)
-        else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
+                    add_mappings_list.append(output_trigger_id)
 
-    #Creates and adds GUI widgets to the frame
-    def __add_widgets(self):
-        #------------------------------MAIN FRAME WIDGETS--------------------------------------------------
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
+            remove_mappings_list = db_mappings_list
 
-        add_btn = ctk.CTkButton(self, text="Add Image", fg_color="green", command=lambda:self.__switch_to_edit_frame(), font=self.default_font)
-        add_btn.grid(column=0, row=1, sticky="nsew")
+            #Add
+            self.logger.debug(f"Adding new mappings to the database")
+            for output_trigger_id in add_mappings_list:
+                self.logger.debug(f"Adding mapping with Output Logic ID {db_id} and Output Trigger ID {output_trigger_id}")
+                self.db.add_output_logic_mapping(db_id, output_trigger_id)
+            #Remove
+            self.logger.debug("Removing redundant mappings from the database")
+            for output_trigger_id in remove_mappings_list:
+                self.logger.debug(f"Removing mapping with Output Logic ID {db_id} and Output Trigger ID {output_trigger_id}")
+                self.db.delete_row_dual_condition("output_logic_mapping", "output_logic_id", db_id, "output_trigger_id", output_trigger_id)
 
-        del_btn = ctk.CTkButton(self, text="Remove Image", fg_color="red", command=lambda:self.__remove_image(), font=self.default_font)
-        del_btn.grid(column=0, row=2, sticky="nsew")
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
 
-        self.editor_frame = ImagePicker(self)
-        self.editor_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
 
-        self.viewer_frame = ImageViewer(self)
-        self.viewer_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
 
-        #Store the frames in a tuple allows for raising
-        self.image_frames = [self.editor_frame, self.viewer_frame]
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
 
-        #Save Button
-        self.save_btn = ctk.CTkButton(master=self, text="Save", fg_color="green", command=lambda:self.__save_entry_data(), font=self.default_font)
+            #Extract the data from the item data list
+            name = item_data_list[1]
+            source_input_logic_id = item_data_list[2]
 
-    #Raises edit frame to top and grids save button
-    def __switch_to_edit_frame(self):
-        frame :ctk.CTkScrollableFrame = self.image_frames[0]
-        frame.tkraise()
-        self.save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
-    #Raises view frame to top and hides save button
-    def __switch_to_view_frame(self):
-        frame :ctk.CTkScrollableFrame = self.image_frames[1]
-        frame.tkraise()
-        self.save_btn.grid_forget()
+            #Get the source input_logic_name
+            source_input_logic_name = self.db.get_1column_data("input_logic_name", "input_logics", "input_logic_id", source_input_logic_id)[0]
+
+            #Combine the input_logic id and name together
+            source_input_logic_id_name = f"{source_input_logic_id}:{source_input_logic_name}"
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(name, source_input_logic_id_name)
+
+            #Get the output trigger mappings from the database
+            self.logger.debug(f"Retrieving Output trigger mappings for Output_Logic {db_id}")
+            output_trigger_id_list = self.db.get_1column_data("output_trigger_id", "output_logic_mapping", "output_logic_id", db_id)
+
+            #Get the name of each Output Trigger ID and add to a list
+            output_trigger_name_list = []
+            for output_trigger_id in output_trigger_id_list:
+                self.logger.debug(f"Looking up name associated to Output Trigger ID: {output_trigger_id}")
+                output_trigger_name = self.db.get_1column_data("output_trigger_name", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+                output_trigger_name_list.append(output_trigger_name)
+
+            #Combine the id and name lists
+            self.logger.debug(f"Combining ID an Name lists")
+            output_trigger_id_name_list = combine_lists(output_trigger_id_list, output_trigger_name_list)
+            self.logger.debug(f"Combined List result: {output_trigger_id_name_list}")
+
+            #Add the mappings to the selection column tree
+            self.logger.debug(f"Updating Selection Column with combined list data.")
+            dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
+            dual_selection_column_widget.set_column_values(1, output_trigger_id_name_list)
+
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+
+#-------------------------------------------------------------------------------------------------------------------
+
+    def __update_selection_tree(self):
+        """Updates the Dual Selection Tree with current database values."""
+        self.logger.debug("Updating the Dual Selection Tree with current database values.")
+        dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
         
-class Trigger_Config(BaseFrame):
-    def __init__(self, parent, database_connection):
-        super().__init__(parent, database_connection)
+        output_trigger_rows = self.db.get_2column_data("output_trigger_id", "output_trigger_name", "output_triggers")
+        dual_selection_column_widget.set_column_values(0, output_trigger_rows)            
 
-        #GUI Variables - to allow dynamic updating
-        self.trigger_group_id_var = StringVar()
-        self.trigger_group_name_var = StringVar()
+    def update_combobox_values(self):
+        """Set the selection list of values for the comboboxes."""
 
-        self.mic_live_trigger_ctrl_var = StringVar()
-        self.mic_live_ctrl_id_var = StringVar()
-        self.mic_live_trigger_pin_var = StringVar()
+        #Blank list to hold concatenated id and controller names
+        combobox_values = []
 
-        self.tx_trigger_ctrl_var = StringVar()
-        self.tx_ctrl_id_var = StringVar()
-        self.tx_trigger_pin_var = StringVar()
+        #Query the database
+        input_logic_list = self.db.get_2column_data("input_logic_id", "input_logic_name", "input_logics")
 
-        self.cue_trigger_ctrl_var = StringVar()
-        self.cue_ctrl_id_var = StringVar()
-        self.cue_trigger_pin_var = StringVar()
+        #Extract the id and name of each controller and then concatenate into a single string
+        for input_logic in input_logic_list:
+            id = input_logic[0]
+            name = input_logic[1]
+            combined = f"{id}:{name}"
+            combobox_values.append(combined)
 
-        self.line1_trigger_ctrl_var = StringVar()
-        self.line1_ctrl_id_var = StringVar()
-        self.line1_trigger_pin_var = StringVar()
+        self.set_combobox_values(self.source_input_logic_widget_index, combobox_values)
 
-        self.line2_trigger_ctrl_var = StringVar()
-        self.line2_ctrl_id_var = StringVar()
-        self.line2_trigger_pin_var = StringVar()
+class Output_Triggers(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
 
-        self.control_trigger_ctrl_var = StringVar()
-        self.control_ctrl_id_var = StringVar()
-        self.control_trigger_pin_var = StringVar()
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
+        row2 = Input_Row("Type:", "combobox", "not_null")
+        self.type_input_widget_index = 1
+        row3= Input_Row("Controller:", "combobox", "not_null")
+        self.controller_input_widget_index = 2
+        row4= Input_Row("GPO Config:", "title", "n/a")
+
+        row5= Input_Row("Address:", "combobox", "not_null")
+        self.address_input_widget_index = 4
+        row6= Input_Row("OSC Output Config:", "title", "n/a")
+
+        row7= Input_Row("IP Address:", "text_entry", "not_null_ip_address_or_n/a")
+        self.ip_input_widget_index = 6
+        row8= Input_Row("Port:", "text_entry", "not_null")
+        self.port_input_widget_index = 7
+        row9= Input_Row("Protocol:", "combobox", "not_null")
+        self.protocol_input_widget_index = 8
         
-        #Flip-Flop variable to sense the state of the GUI - indicates whetther a tree item is selected to modify
-        # or a new item is being added, default=True for error protection
-        self.new_item = True
+        row10= Input_Row("OSC Output on High:", "title", "n/a")
 
-        #Add the display widgets to the frame
-        self.__add_widgets()
+        row11= Input_Row("Command:", "text_entry", "null_or_osc_command")
+        self.command_high_input_widget_index = 10
+        row12= Input_Row("Arguments:", "text_entry", "null_or_osc_args")
+        self.arguments_high_input_widget_index = 11
 
-        #List variables for updating comboboxes
-        #Stores the unique id of the controller
-        self.controller_ids_list = []
-        #Stores the human readable names of the controllers
-        self.controller_names_list = []
-        #Stores the selected GPI values for each row
-        self.gpi_list = []
+        row13= Input_Row("OSC Output on Low:", "title", "n/a")
+
+        row14= Input_Row("Command:", "text_entry", "null_or_osc_command")
+        self.command_low_input_widget_index = 13
+        row15= Input_Row("Arguments:", "text_entry", "null_or_osc_args")
+        self.arguments_low_input_widget_index = 14
+
+        row_list = [row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Output Triggers", "output_triggers", "output_trigger_name", "output_trigger_id", row_list)
+
+        #Hard coding combobox values for type and protocol these do not change.
+        self.set_combobox_values(self.type_input_widget_index ,["Network", "GPO"])
+        self.set_combobox_values(self.protocol_input_widget_index ,["UDP", "TCP"])
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+    #-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_combobox_values()
+        self.update_tree()
+
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        self.input_frame.set_combobox_command(self.type_input_widget_index, self.__type_combobox_callback)
+        self.input_frame.set_combobox_command(self.controller_input_widget_index, self.__controller_combobox_callback)
         
-        self.combobox_list = [
-            self.trig_mic_live_ind_ctrl_cbox, 
-            self.trig_tx_ind_ctrl_cbox, 
-            self.trig_cue_ind_ctrl_cbox, 
-            self.trig_lin1_ind_ctrl_cbox, 
-            self.trig_lin2_ind_ctrl_cbox, 
-            self.trig_control_ind_ctrl_cbox
-            ]
-        self.pin_combobox_list = [
-            self.trig_mic_live_ind_pin_cbox, 
-            self.trig_tx_ind_pin_cbox, 
-            self.trig_cue_ind_pin_cbox, 
-            self.trig_lin1_ind_pin_cbox, 
-            self.trig_lin2_ind_pin_cbox, 
-            self.trig_control_ind_pin_cbox
-            ]
-        
-        #Variable lists
-        self.trigger_group_id_name_var_list = [
-            self.trigger_group_id_var,
-            self.trigger_group_name_var
-        ]
-
-        self.controller_name_cobobox_var_list = [
-            self.mic_live_trigger_ctrl_var,
-            self.tx_trigger_ctrl_var,
-            self.cue_trigger_ctrl_var,
-            self.line1_trigger_ctrl_var,
-            self.line2_trigger_ctrl_var,
-            self.control_trigger_ctrl_var
-        ]
-
-        self.controller_id_combobox_var_list = [
-            self.mic_live_ctrl_id_var,
-            self.tx_ctrl_id_var,
-            self.cue_ctrl_id_var,
-            self.line1_ctrl_id_var,
-            self.line2_ctrl_id_var,
-            self.control_ctrl_id_var,
-        ]
-
-        self.gpi_combobox_var_list = [
-            self.mic_live_trigger_pin_var,
-            self.tx_trigger_pin_var,
-            self.cue_trigger_pin_var,
-            self.line1_trigger_pin_var,
-            self.line2_trigger_pin_var,
-            self.control_trigger_pin_var
-            ]
-        #Used for updating combobox values
-        #Keys must be correct OSC addresses for the trigger items
-        self.controller_name_combobox_var_dict = {
-            "/signal-lights/1" : self.mic_live_trigger_ctrl_var,
-            "/signal-lights/2" : self.tx_trigger_ctrl_var,
-            "/signal-lights/3" : self.cue_trigger_ctrl_var,
-            "/signal-lights/4" : self.line1_trigger_ctrl_var,
-            "/signal-lights/5" : self.line2_trigger_ctrl_var,
-            "/signal-lights/6" : self.control_trigger_ctrl_var
-        }
-        #Keys must be correct OSC addresses for the trigger items
-        self.controller_id_combobox_var_dict = {
-            "/signal-lights/1" : self.mic_live_ctrl_id_var,
-            "/signal-lights/2" : self.tx_ctrl_id_var,
-            "/signal-lights/3" : self.cue_ctrl_id_var,
-            "/signal-lights/4" : self.line1_ctrl_id_var,
-            "/signal-lights/5" : self.line2_ctrl_id_var,
-            "/signal-lights/6" : self.control_ctrl_id_var,
-        }
-        #Keys must be correct OSC addresses for the trigger items
-        self.gpi_combobox_var_dict = {
-            "/signal-lights/1" : self.mic_live_trigger_pin_var,
-            "/signal-lights/2" : self.tx_trigger_pin_var,
-            "/signal-lights/3" : self.cue_trigger_pin_var,
-            "/signal-lights/4" : self.line1_trigger_pin_var,
-            "/signal-lights/5" : self.line2_trigger_pin_var,
-            "/signal-lights/6" : self.control_trigger_pin_var
-        }
-        #Keys must be correct OSC addresses for the trigger items
-        self.trigger_list = [
-            "/signal-lights/1",
-            "/signal-lights/2",
-            "/signal-lights/3",
-            "/signal-lights/4",
-            "/signal-lights/5",
-            "/signal-lights/6"
-        ]
-        #Refresh the tree view with the current database data so it's not empty on startup
-        self.logger.info("Retrieving current trigger_groups table data")
-        updated_rows = self.db.get_current_table_data("trigger_groups")
-
-        self.logger.info("Updating trigger_groups tree")
-        self.__update_tree(updated_rows)
-
         #Setup Binding clicking a row to populating the data fields
-        self.tree.bind("<ButtonRelease-1>", self.__populate_widget_data)
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-        #Setup Binding keyboard focus leaving trigger group name entry widget triggers osc strings to update
-        self.trig_grp_name_entry.bind("<FocusOut>", self.__update_osc_strings)
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        #Setup Binding mouse hover leaving trigger group name entry widget triggers osc strings to update
-        self.trig_grp_name_entry.bind("<Leave>", self.__update_osc_strings)
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-    #Clears all the entry widgets in the GUI
-    def __clear_widgets(self):
-        #Set the state indicator variable to True, indicating a new item is to be added
-        #self.new_item = True
-        #self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            output_trigger_name = input_data_list[self.name_input_widget_index]
+            output_type = input_data_list[self.type_input_widget_index]
+            controller_id_name : str = input_data_list[self.controller_input_widget_index]
+            controller_id = controller_id_name.split(":")[0]
+            address = input_data_list[self.address_input_widget_index]
+            ip_address = input_data_list[self.ip_input_widget_index]
+            port = input_data_list[self.port_input_widget_index]
+            protocol = input_data_list[self.protocol_input_widget_index]
+            command_high = input_data_list[self.command_high_input_widget_index]
+            arguments_high = input_data_list[self.arguments_high_input_widget_index]
+            command_low = input_data_list[self.command_low_input_widget_index]
+            arguments_low = input_data_list[self.arguments_low_input_widget_index]
 
-        #Clear All entry Widgets
-        i = 0
-        widgets_list = self.trigger_group_id_name_var_list + self.controller_name_cobobox_var_list + self.controller_id_combobox_var_list + self.gpi_combobox_var_list
-        for widget in widgets_list:
-            widget.set("")
-            i += 1
+            #Save the data to the database
+            self.__save_input_data(output_trigger_name, output_type, controller_id, address, ip_address, port, protocol, command_high, arguments_high, command_low, arguments_low)
 
-        #Clear GPI combobox options 
-        for combobox in self.pin_combobox_list:
-            combobox.configure(values="")
+            self.input_frame.clear_all_entries()
 
-        self.logger.info("Cleared all entry Widgets")
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
 
-    def __add_trigger_group(self):
-        self.logger.debug("##########################--Add Button Clicked--##########################")
-        #Set state indicator to true as widgets are to be cleared
-        self.new_item = True
-        self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
-        #Clear entry widgets
-        self.__clear_widgets()
-    
-    #Refreshes Treeviewer data
-    def __update_tree(self, updated_rows):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared trigger_groups tree")
+            self.logger.info("Saved Input Data to Database")
 
-        for row in updated_rows:
-            #Add items to the treeviewer, Indexes: 0=ID, 1=Message Group Name
-            #Format: (Parent=(iid), index) "" is the top level parent node
-            self.tree.insert("", tk.END, text=row[0], values=(row[1],)) 
-            self.logger.info(f"Added {row[1]} to the tree")
-        self.logger.info("Tree Updated")
+            self.update_tree()
 
-    #Saves entered data from the GUI to the datbase
-    #Detecting whether it is a new item or modifying existing
-    def __save_entry_data(self):
-        self.logger.info("##########################--Save Button Clicked--##########################")
-        #Verify all entries populated
-        valid = self.__verify_input()
-        if valid == True:
-            #Determine whether a new item or modifying existing
-            #Adding a new item
-            if self.new_item == True:
-                self.logger.info("Adding New Item to Database")
-                self.logger.debug(f"Adding an entry for Trigger Group: {self.trigger_group_name_var.get()} to the database")
+        else:
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
-                #Add a new trigger group to the database
-                self.db.add_trigger_group(self.trigger_group_name_var.get())
-                #Get the id of the new trigger group
-                trigger_group_id = self.db.get_1column_data("trigger_group_id", "trigger_groups", "trigger_group_name", self.trigger_group_name_var.get())[0]
-                
-                #Iteration variable for loop to work
-                x=0
-                #Add each trigger mapping to the database
-                for mapping in self.controller_id_combobox_var_list:
-                    #Get the controller id
-                    if self.controller_id_combobox_var_list[x].get() == 'None':
-                        controller_id = None
-                    else:
-                        controller_id = self.controller_id_combobox_var_list[x].get()
-                    #Add the mapping entry in the database
-                    self.db.add_trigger_mapping(trigger_group_id, 
-                                                self.trigger_list[x],
-                                                controller_id, 
-                                                self.gpi_combobox_var_list[x].get()
-                                                )
-                    self.logger.debug(f"Mapping entry added - Trig ID:{trigger_group_id}, Trigger: {self.trigger_list[x]}, Controller:{self.controller_id_combobox_var_list[x].get()}, GPI: {self.gpi_combobox_var_list[x].get()}")
-                    #Add 1 to the iteration variable
-                    x += 1
+    #Save input data to the database
+    def __save_input_data(self, output_trigger_name, output_type, controller_id, address, ip_address, port, protocol, command_high, arguments_high, command_low, arguments_low):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
 
-                self.logger.info("Added new item to database")
+            #Add the validated data to the database
+            self.db.add_output_trigger(output_trigger_name, output_type, controller_id, address, ip_address, port, protocol, command_high, arguments_high, command_low, arguments_low)
 
-                
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
 
-            #Modifying existing item    
-            else:
-                self.logger.info("Modifing existing database entry")
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
 
-                #Get the value from the ID and name widgets
-                trigger_group_id = self.trigger_group_id_var.get()
-                name = self.trigger_group_name_var.get()
+            self.db.update_row(self.table, "output_trigger_name", self.id_column, output_trigger_name, db_id)
+            self.db.update_row(self.table, "output_type", self.id_column, output_type, db_id)
+            self.db.update_row(self.table, "controller_id", self.id_column, controller_id, db_id)
+            self.db.update_row(self.table, "address", self.id_column, address, db_id)
+            self.db.update_row(self.table, "ip_address", self.id_column, ip_address, db_id)
+            self.db.update_row(self.table, "port", self.id_column, port, db_id)
+            self.db.update_row(self.table, "protocol", self.id_column, protocol, db_id)
+            self.db.update_row(self.table, "command_high", self.id_column, command_high, db_id)
+            self.db.update_row(self.table, "arguments_high", self.id_column, arguments_high, db_id)
+            self.db.update_row(self.table, "command_low", self.id_column, command_low, db_id)
+            self.db.update_row(self.table, "arguments_low", self.id_column, arguments_low, db_id)
 
-                self.logger.info(f"Updating database entry for trigger group: {name}, ID={trigger_group_id}")
-                #Update the Trigger Group Name
-                self.db.update_row("trigger_groups", "trigger_group_name","trigger_group_id", name, trigger_group_id)
-                #Iteration variable for loop to work
-                x=0
-                for mapping in self.controller_id_combobox_var_list:
-                    controller_id = self. __get_controller_id(x)
-                    #Check if the mapping exists already
-                    mapping_check = self.db.get_current_row_data_dual_condition("trigger_mappings", "trigger_group_id", trigger_group_id, "trigger", self.trigger_list[x])
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
 
-                    #Mapping Exists - Update the mapping
-                    if mapping_check != []:
-                        self.logger.debug("Mapping Exists, updating mapping")
-                        self.db.update_trigger_mapping("trigger_mappings", 
-                                                    "trigger_group_id", 
-                                                    trigger_group_id, 
-                                                    "trigger", 
-                                                    self.trigger_list[x], 
-                                                    controller_id, 
-                                                    self.gpi_combobox_var_list[x].get())
-                    #Mapping does not exist - Create a new mapping
-                    if mapping_check == []:    
-                        self.logger.debug("Mapping DOES NOT Exist, creating mapping")
-                        #Add the mapping entry in the database
-                        self.db.add_trigger_mapping(trigger_group_id, 
-                                                    self.trigger_list[x],
-                                                    self.controller_id_combobox_var_list[x].get(), 
-                                                    self.gpi_combobox_var_list[x].get()
-                                                    )
-                        self.logger.info("Added new item to database")
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
 
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
 
-                    #Add 1 to the iteration variable
-                    x += 1
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            output_trigger_name = item_data_list[1]
+            output_type = item_data_list[2]
+            controller_id = item_data_list[3]
+            address = item_data_list[4]
+            ip_address = item_data_list[5]
+            port = item_data_list[6]
+            protocol = item_data_list[7]
+            command_high = item_data_list[8]
+            arguments_high = item_data_list[9]
+            command_low = item_data_list[10]
+            arguments_low = item_data_list[11]
+
+            #Get the name of the controller from the database
+            controller_name = self.db.get_1column_data("controller_name", "controllers", "controller_id", controller_id)[0]
+
+            #Combine the controller id and name together
+            controller_id_name = f"{controller_id}:{controller_name}"
+
+            #Set the type
+            self.input_frame.set_data(self.type_input_widget_index, output_type)
+
+            #Set the OSC Config widgets state
+            self.__type_combobox_callback(None)
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(output_trigger_name, output_type, controller_id_name, address, ip_address, port, protocol, command_high, arguments_high, command_low, arguments_low)
             
-            #Refresh the tree
-            updated_rows = self.db.get_current_table_data("trigger_groups")
-            self.__update_tree(updated_rows)
-            #Clear all entry widget fields
-            self.__clear_widgets()
-            #Set state indicator to true as widgets have been cleared
-            self.new_item = True
-            self.logger.info("Set State Indicator to True - No Tree Viewer item selected")
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
 
-    #Removes an entry from the database
-    def __remove_trigger_group(self):
-        self.logger.info("Remove button clicked")
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only try to delete an item if there is actually one selected.
-        if self.tree.item(selected)["text"] != '':
-            confirmation = Message_Boxes.confirm_delete()
+            #Set the values of the address combobox
+            self.__set_address_combobox_values()
+
+            #Set address combobox read only state
+            self.__set_address_combobox_state()
+
+            self.logger.info("Updated Input widgets")
+
+    #-------------------------------------------------------------------------------------------------------------------
+    def update_combobox_values(self):
+        """Set the selection list of values for the comboboxes."""
+
+        #Blank list to hold concatenated id and controller names
+        combobox_values = []
+
+        #Query the database
+        controller_list = self.db.get_2column_data("controller_id", "controller_name", "controllers")
+
+        #Extract the id and name of each controller and then concatenate into a single string
+        for controller in controller_list:
+            id = controller[0]
+            name = controller[1]
+            combined = f"{id}:{name}"
+            combobox_values.append(combined)
+
+        self.set_combobox_values(self.controller_input_widget_index, combobox_values)
+
+    def __type_combobox_callback(self, event):
+        """Calback called when the type combobox value is selected. Disables and enables the appropriate widgets based on selection."""
+        #Get the current selection from the type combobox
+        input_type :str = self.input_frame.get_data(self.type_input_widget_index)
+
+        #Clear all widgets below the type combobox
+        self.input_frame.clear_entry(self.controller_input_widget_index)
+        self.input_frame.clear_entry(self.address_input_widget_index)
+        self.input_frame.clear_entry(self.ip_input_widget_index)
+        self.input_frame.clear_entry(self.port_input_widget_index)
+        self.input_frame.clear_entry(self.protocol_input_widget_index)
+        self.input_frame.clear_entry(self.command_high_input_widget_index)
+        self.input_frame.clear_entry(self.arguments_high_input_widget_index)
+        self.input_frame.clear_entry(self.command_low_input_widget_index)
+        self.input_frame.clear_entry(self.arguments_low_input_widget_index)
+
+        #Set the values of the controller combobox
+        self.__set_controller_combobox_values(input_type)
+
+        if input_type == "Network":
+            self.input_frame.change_combobox_readonly_state(self.address_input_widget_index, "disabled")
+            self.input_frame.set_data(self.address_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.ip_input_widget_index, "normal")
+            self.input_frame.change_entry_readonly_state(self.port_input_widget_index, "normal")
+            self.input_frame.change_combobox_readonly_state(self.protocol_input_widget_index, "readonly")
+            self.input_frame.change_entry_readonly_state(self.command_high_input_widget_index, "normal")
+            self.input_frame.change_entry_readonly_state(self.arguments_high_input_widget_index, "normal")
+            self.input_frame.change_entry_readonly_state(self.command_low_input_widget_index, "normal")
+            self.input_frame.change_entry_readonly_state(self.arguments_low_input_widget_index, "normal")
+        elif input_type == "GPO":
+            self.input_frame.change_combobox_readonly_state(self.address_input_widget_index, "readonly")
+            self.input_frame.change_entry_readonly_state(self.ip_input_widget_index, "disabled")
+            self.input_frame.set_data(self.ip_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.port_input_widget_index, "disabled")
+            self.input_frame.set_data(self.port_input_widget_index, "N/A")
+            self.input_frame.change_combobox_readonly_state(self.protocol_input_widget_index, "disabled")
+            self.input_frame.set_data(self.protocol_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.command_high_input_widget_index, "disabled")
+            self.input_frame.set_data(self.command_high_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.arguments_high_input_widget_index, "disabled")
+            self.input_frame.set_data(self.arguments_high_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.command_low_input_widget_index, "disabled")
+            self.input_frame.set_data(self.command_low_input_widget_index, "N/A")
+            self.input_frame.change_entry_readonly_state(self.arguments_low_input_widget_index, "disabled")
+            self.input_frame.set_data(self.arguments_low_input_widget_index, "N/A")
+        else:
+            self.logger.error(f"Invalid input type specified:{input_type}")
+
+    def __set_controller_combobox_values(self, input_type :str):
+        """Sets the values for the controller combobox based on the type selection."""
+
+        #Query the database to get all controllers
+        controller_list = self.db.get_2column_data("controller_id", "controller_name", "controllers")
+
+        #Blank list to hold concatenated id and controller names
+        controller_id_name_list = []
+
+        #Extract the id and name of each controller and then concatenate into a single string
+        for controller in controller_list:
+            id = controller[0]
+            name = controller[1]
+            combined = f"{id}:{name}"
+            controller_id_name_list.append(combined)
+
+        #If the selection is Netowork
+        if input_type == "Network":
+            #Set the controller combobox to 0:Network
+            self.input_frame.set_data(self.controller_input_widget_index, controller_id_name_list[0])
+            self.set_combobox_values(self.controller_input_widget_index, "")
+
+        #If the selection is GPO
+        else:
+            #Extract the rest of the controllers from the list, negating the network controller
+            controller_list_length = len(controller_id_name_list)
+            physical_controller_id_name_list = controller_id_name_list[1:controller_list_length:1]
+
+            #Set the combobox values
+            self.set_combobox_values(self.controller_input_widget_index, physical_controller_id_name_list)
+
+    def __controller_combobox_callback(self, event):
+        #Clear the address combobox
+        self.input_frame.clear_entry(self.address_input_widget_index)
+
+        #Set the values of the address combobox
+        self.__set_address_combobox_values()
+
+    def __set_address_combobox_values(self):
+        #Get the current value from the controller combobox
+        controller_id_name : str = self.input_frame.get_data(self.controller_input_widget_index)
+        controller_id = controller_id_name.split(":")[0]
+
+        #If the network controller is not selected
+        if controller_id != "0":
+            #Lookup configured output pin ids for selected controller
+            output_pins_int_list = self.db.get_1column_data_dual_condition("pin_id", "controller_id", controller_id, "pin_mode", "output", "pin_modes")
+            self.logger.debug(f"Output Addresses associated with controller_id {controller_id} : {output_pins_int_list}")
+
+            #Convert the pin integers to strings
+            output_pins_list = []
+            for output_pin_int in output_pins_int_list:
+                output_pins_list.append(str(output_pin_int))
+
+            #Lookup if any of these pins have already been configured in another output trigger
+            configured_pins_list = self.db.get_1column_data("address", "output_triggers", "controller_id", controller_id)
+            self.logger.debug(f"Pins already assigned to output triggers: {configured_pins_list}")
+            
+            #Remove assigned pins from the output_pins list
+            for pin_id in configured_pins_list:
+                output_pins_list.remove(pin_id)
+        
+        #If the network controller is selected
+        else:
+            output_pins_list = []
+
+        #Set the address combobox values
+        self.set_combobox_values(self.address_input_widget_index, output_pins_list)
+
+    def __set_address_combobox_state(self):
+        """Sets the readonly state of the address combobox based on the value selected in the controller combobox."""
+
+        #Get the current value in the controller combobox
+        controller_id_name = self.input_frame.get_data(self.controller_input_widget_index)
+
+        if controller_id_name == "0:Network":
+            #Set readonly state to false
+            self.input_frame.change_combobox_readonly_state(self.address_input_widget_index, "disabled")
+            self.logger.debug(f"Set Address Combobox to state to disabled")
+        else:
+            #Set readonly state to true
+            self.input_frame.change_combobox_readonly_state(self.address_input_widget_index, "readonly")
+            self.logger.debug(f"Set Address Combobox to  state to readonly")
+        
+class Display_Templates(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+
+         #Rows to make in the frame
+        row1 = Input_Row(None, "display_builder", "not_null_display_builder")
+        self.name_input_widget_index = 0
+
+        row_list = [row1]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Display Builder", "display_templates", "display_template_name", "display_template_id", row_list)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+        self.set_delete_btn_command(self.delete_btn_command)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_tree()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
+
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
+
+        valid_status, input_data_list = self.get_and_validate_input_data()
+
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            self.logger.debug(f"Input data list: {input_data_list}")
+
+            display_template_obj : Display_Template = input_data_list[0]
+
+            display_template_name = display_template_obj.display_template_name
+            number_of_columns = display_template_obj.number_of_columns
+            number_of_rows = display_template_obj.number_of_rows
+            layout_matrix = display_template_obj.layout_matrix
+            display_area_dict = display_template_obj.display_area_dict
+
+            #Save the data to the database
+            self.__save_input_data(display_template_name, number_of_columns, number_of_rows, layout_matrix, display_area_dict)
+
+            self.input_frame.clear_all_entries()
+
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
+
+            self.logger.info("Saved Input Data to Database")
+
+            self.update_tree()
+
+        else:
+            #Show a message box stating cannot save data
+            invalid_data_warning()
+
+    #Called when delete button is clicked
+    def delete_btn_command(self):
+        self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+        #Get the DB id of the selected treeview item
+        in_focus_db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
+
+        if in_focus_db_id != None:
+            #Confirm with the user they want to delete
+            confirmation = confirm_delete()
             if confirmation == True:
-                #Retrieve the id of the trigger group template
-                db_id = self.tree.item(selected)["text"]
-                #Remove the selected item from the database in both the 
-                #trigger_groups and trigger_mappings tables
+                #Check the display template is not in use by any display instances
+                query_result = self.db.get_1column_data("display_instance_id", "display_instances", "display_template_id", in_focus_db_id)
+                if query_result == []:
+                    #Delete display surface entries
+                    feedback_1 = self.db.delete_row("display_surfaces", "display_template_id", in_focus_db_id)
 
-                #Check the trigger group is not in use by any devices before removing mappings
-                devices = self.db.get_1column_data("device_name", "devices", "trigger_group_id", db_id)
-                
-                if devices == []:
-                    self.logger.debug("Trigger Group not in use by devices, safe to remove.")
-                    feedback1 = self.db.delete_row("trigger_mappings", "trigger_group_id", db_id)
-                    feedback2 = self.db.delete_row("trigger_groups", "trigger_group_id", db_id)
-                    #Only delete if no database integrity errors are thrown
-                    if (feedback1 == True) & (feedback2 == True):
-                        self.logger.info(f"Deleted trigger group with ID={db_id} from the database")
-                        #Clear the entry widgets
-                        self.__clear_widgets()
-                        #Refresh the tree view
-                        updated_rows = self.db.get_current_table_data("trigger_groups")
-                        self.__update_tree(updated_rows)
-                    else:
+                    #Delete Display Template entry
+                    feedback_2 = self.db.delete_row("display_templates", "display_template_id", in_focus_db_id)
+                    if (feedback_1 and feedback_2) == True:
+                            self.logger.info(f"Deleted row with {self.id_column} of {in_focus_db_id} in table {self.table}")
+
+                            #Clear the input widgets
+                            self.input_frame.clear_all_entries()
+
+                            #Set the State indicator to True
+                            self.set_new_item_state(True)
+
+                            #Update the tree
+                            self.update_tree()
+                else:
                         #Warn the user the item cannot be deleted to maintain database integrity
-                        Message_Boxes.delete_warning("Trigger Group is currently in use by a device.")
-                else:
-                    #Warn the user the item cannot be deleted to maintain database integrity
-                    Message_Boxes.delete_warning("Trigger Group is currently in use by a device.")
+                        delete_warning("Unable to delete display template, the template is in use by a display instance.")
+
+    #Save input data to the database
+    def __save_input_data(self, display_template_name, number_of_columns, number_of_rows, layout_matrix, display_area_dict):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Generate a timesatamp to show when last modified
+            timestamp = str(datetime.datetime.now())
+
+            #Convert the layout matrix to json to store as text
+            json_layout_matrix = json.dumps(layout_matrix)
+            self.logger.debug(f"Converted JSON Layout Matrix: {json_layout_matrix}")
+
+            #Add the validated data to the database
+            self.db.add_display_template(display_template_name, number_of_columns, number_of_rows, json_layout_matrix, timestamp)
+
+            #Get the id of the newly inserted template
+            display_template_id = self.db.get_last_insert_row_id()
+            self.logger.debug(f"Display Template ID:{display_template_id}")
+
+            #Save the display surfaces
+            for display_surface_id in display_area_dict:
+                display_area_obj : Display_Section = display_area_dict[display_surface_id]
+
+                widget_string = display_area_obj.widget_string
+                top_left_coord_column = display_area_obj.top_left_coordinate[0]
+                top_left_coord_row = display_area_obj.top_left_coordinate[1]
+                block_width = display_area_obj.block_width
+                block_height = display_area_obj.block_height
+
+                self.db.add_display_surface(display_template_id, 
+                                            display_surface_id, 
+                                            widget_string, 
+                                            top_left_coord_column, 
+                                            top_left_coord_row, 
+                                            block_width, 
+                                            block_height)
+
+        #Updating an existing item
         else:
-            self.logger.info("No Tree Item selected - cannot delete anything")
+            self.logger.info("Updating existing database entry")
 
-    #Sets option for GPI combobox based on crontroller combobox selection
-    #clear_combobox is an option to clear the current value stored in the combobox
-    def populate_gpi_cbox(self, combobox_value, combobox_index, clear_combobox):
-        self.logger.debug(f"Populating GPI Combobox using value: {combobox_value}")
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
 
-        #Get the id of the selected controller by querying the database
-        #If a netowrk controller is used ID = 0
-        if combobox_value == "Network":
-            id=None
-        else:
-            #Removing the outer brackets from the query response
-            id = self.db.get_1column_data("controller_id", "controllers", "controller_name", combobox_value)[0]
-            self.logger.debug(f"ID of {combobox_value} is {id}")
-
-        #Set the controller ID field in the GUI
-        self.logger.debug(f"Updating controller id in label with index: {combobox_index}, with {id}")
-        self.controller_id_combobox_var_list[combobox_index].set(id)
-
-        #Retrieve the combobox variable
-        combobox_var = self.gpi_combobox_var_list[combobox_index]
-        #Retrieve the combobox object
-        self.logger.debug(f"Pin Combobox index:{combobox_index}")
-        combobox = self.pin_combobox_list[combobox_index]
-
-        #If the controller ID is 0 we want to populate the GPI / NET combobox with the OSC address
-        #The full osc address is the /trigger_group_name/trigger
-        if id == None:
-            trigger_group_name = self.trigger_group_name_var.get()
-            trigger_group_name_no_whitespace = trigger_group_name.replace(' ', '-')
-            trigger = self.trigger_list[combobox_index]
-            osc_address = "/" + trigger_group_name_no_whitespace + trigger
-
-            #Assign value to the GPI / NET combobox
-            #Update the combobox variable
-            combobox_var.set(osc_address)
-            #Clear the combobox values
-            combobox.configure(values=[])
-
-        else:
-            #Query the database for the GPI pins of the specified controller using the unique id
-            #Removing outer brackets fro mteh returned data
-            data = self.db.get_current_row_data("controllers", "controller_id", id)
+            #Check the Display template is not in use by any display instances
+            display_instance_ids_list = self.db.get_1column_data("display_instance_id", "display_instances", "display_template_id", db_id)
             
-            self.logger.info(f"Returned Data:{data}")
+            if display_instance_ids_list == []:
 
-            #Extract the Pin info from the query
-            #Create a list to hold the pin info
-            pin_list = []
-            #Add each pin to the list (i-4) to start the pins at 2 - Arduino limitation
-            #TODO: Make the range set from a global variable based on board type
-            for i in range(6, 24):
-                if len(data) > 0:
-                    data_item = data[0]
-                    self.logger.debug(f"Pin:{i-4} Mode is:{data_item[i]}")
-                    #Only if the pin is specified as an input, add it to the list
-                    if data_item[i] == "in":
-                        #Combobox values can only be strings, so convert int to string
-                        pin_list.append(str(i-4))
-                        self.logger.debug(f"Pin:{i-4} added to Pin List")
-                else:
-                    self.logger.debug("Returned data is empty.")
+                #Generate a timesatamp to show when last modified
+                timestamp = str(datetime.datetime.now())
 
-            self.logger.debug(f"Pin List:{pin_list}")
+                #Convert the layout matrix to json to store as text
+                json_layout_matrix = json.dumps(layout_matrix)
+                self.logger.debug(f"Converted JSON Layout Matrix: {json_layout_matrix}")
 
-            #Assign values to the GPI combobox
-            self.logger.debug(f"Pin Combobox:{combobox}")
-            combobox.configure(values=pin_list)
-            self.logger.info(f"Values: {pin_list} set for GPI combobox: {combobox}")
-        
-        if (clear_combobox == True) & (id != None):
-            #Clear the value currently in the combobox
-            self.logger.debug("Clearing combobox value, a different controller has been selected.")
-            combobox_var.set("")
+                #Update the dipslay template database entries
+                self.db.update_row("display_templates", "display_template_name", "display_template_id", display_template_name, db_id)
+                self.db.update_row("display_templates", "total_columns", "display_template_id", number_of_columns, db_id)
+                self.db.update_row("display_templates", "total_rows", "display_template_id", number_of_rows, db_id)
+                self.db.update_row("display_templates", "layout_matrix", "display_template_id", json_layout_matrix, db_id)
+                self.db.update_row("display_templates", "last_changed", "display_template_id", timestamp, db_id)
 
-    def __add_widgets(self):
+                #Clear current display surface db entries
+                self.db.delete_row("display_surfaces", "display_template_id", db_id)
 
-        #------------------------------TRIGGER GROUP FRAME-GROUP SETUP FRAME--------------------------------------------------
-        #Create a frame to contain settings about the individual client device
-        group_setup_frame = ctk.CTkScrollableFrame(master=self, border_color="green", border_width=1)
-        group_setup_frame.grid(column=1, row=0, columnspan=3, sticky="nsew")
+                #Store the new display surface entries
+                for display_surface_id in display_area_dict:
+                    display_area_obj : Display_Section = display_area_dict[display_surface_id]
 
-        #Setup Columns / rows for group_setup_frame
+                    widget_string = display_area_obj.widget_string
+                    top_left_coord_column = display_area_obj.top_left_coordinate[0]
+                    top_left_coord_row = display_area_obj.top_left_coordinate[1]
+                    block_width = display_area_obj.block_width
+                    block_height = display_area_obj.block_height
 
-        group_setup_frame.columnconfigure(0, weight=0, pad=20)
-        group_setup_frame.columnconfigure(1, weight=0, pad=20)
-        group_setup_frame.columnconfigure(2, weight=0, pad=20)
-        group_setup_frame.columnconfigure(3, weight=1, pad=20)
+                    self.db.add_display_surface(db_id, 
+                                                display_surface_id, 
+                                                widget_string, 
+                                                top_left_coord_column, 
+                                                top_left_coord_row, 
+                                                block_width, 
+                                                block_height)
+            else:
+                self.logger.debug(f"Display Template:{db_id} in use by display instances:{display_instance_ids_list}")
+                self.logger.debug(f"Cannot modify display template whilst it is being used.")
+                cannot_modify_warning(f"Display Template:{db_id} in use by display instances:{display_instance_ids_list}")
 
-        for i in range(29):
-            group_setup_frame.rowconfigure(i, weight=0, pad=10)
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
 
-        #------------------------------TRIGGER GROUP FRAME WIDGETS --------------------------------------------------
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
 
-        #Tree Viewer to display all devices in a nested format
-        self.tree = CustomTree(self)
-        self.tree.grid(column=0, row=0, columnspan=1, sticky="nsew")
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
 
-        add_btn = ctk.CTkButton(master=self, text="Add Trigger Group", fg_color="green", command=lambda:self.__add_trigger_group(), font=self.default_font)
-        add_btn.grid(column=0, row=1, sticky="nsew")
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
 
-        del_btn = ctk.CTkButton(master=self, text="Remove Trigger Group", fg_color="red", command=lambda:self.__remove_trigger_group(), font=self.default_font)
-        del_btn.grid(column=0, row=2, sticky="nsew")
+            display_template_id = item_data_list[0]
+            display_template_name = item_data_list[1]
+            number_of_columns = item_data_list[2]
+            number_of_rows = item_data_list[3]
+            layout_matrix = json.loads(item_data_list[4])
 
-        #------------------------------GROUP SETUP FRAME-Widgets--------------------------------------------------
-        #------------------------------Controller Attributes--------------------------------------------------
+            #Get all rows mathcing the display template id
+            display_surface_rows = self.db.get_current_row_data("display_surfaces", "display_template_id", display_template_id)
+            self.logger.debug(f"Display Surface Rows: {display_surface_rows}")
 
-        self.title1_label = ctk.CTkLabel(master=group_setup_frame, text="Trigger Group Assign", font=self.default_font)
-        self.title1_label.grid(column=0, row=0, columnspan=4, sticky="ew")
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_grp_id_label = ctk.CTkLabel(master=group_setup_frame, text="Trigger Group ID:", font=self.default_font)
-        self.trig_grp_id_label.grid(column=0, row=1, sticky="w", padx=20)
+            #Get the Display Builder Base frame object
+            display_builder_obj : Display_Builder_Base_Frame = self.input_frame.get_widget_object(0)
 
-        self.trig_grp_id_data_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.trigger_group_id_var, font=self.default_font)
-        self.trig_grp_id_data_label.grid(column=1, row=1, columnspan=4, sticky="w", padx=20)
+            #Build the display layout columns / rows
+            #Add all data to the Display Builder Widgets
+            display_builder_obj.set_data(display_template_id, display_template_name, number_of_rows, number_of_columns, layout_matrix, display_surface_rows)
 
-        self.trig_grp_name_label = ctk.CTkLabel(master=group_setup_frame, text="Trigger Group Name:", font=self.default_font)
-        self.trig_grp_name_label.grid(column=0, row=2, sticky="w", padx=20)
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
 
-        self.trig_grp_name_entry = ctk.CTkEntry(master=group_setup_frame, textvariable=self.trigger_group_name_var, font=self.default_font)
-        self.trig_grp_name_entry.grid(column=1, row=2, columnspan =4, sticky="ew", padx=20)
+            self.logger.info("Updated Input widgets")
 
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.title21_label = ctk.CTkLabel(master=group_setup_frame, text="Controlller Name", font=self.default_font)
-        self.title21_label.grid(column=1, row=3, columnspan=1, sticky="ew", pady=15)
+class Display_Instances(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
 
-        self.title22_label = ctk.CTkLabel(master=group_setup_frame, text="Controller ID", font=self.default_font)
-        self.title22_label.grid(column=2, row=3, columnspan=1, sticky="ew", pady=15)
+         #Rows to make in the frame
+        row1 = Input_Row(None, "display_instance_config", "not_null_display_instance_config")
+        self.name_input_widget_index = 0
 
-        self.title23_label = ctk.CTkLabel(master=group_setup_frame, text="GPI / NET", font=self.default_font)
-        self.title23_label.grid(column=3, row=3, columnspan=1, sticky="ew", pady=15)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_mic_live_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 1:", font=self.default_font)
-        self.trig_mic_live_ind_label.grid(column=0, row=4, sticky="w", padx=20)
+        row_list = [row1]
 
-        self.trig_mic_live_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.mic_live_trigger_ctrl_var, command=lambda value, combobox=0 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_mic_live_ind_ctrl_cbox.grid(column=1, row=4, columnspan =1, sticky="ew", padx=20)
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Display Instances", "display_instances", "display_instance_name", "display_instance_id", row_list)
 
-        self.mic_live_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.mic_live_ctrl_id_var, font=self.default_font)
-        self.mic_live_ctrl_id_label.grid(column=2, row=4)
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+        self.set_delete_btn_command(self.delete_btn_command)
 
-        self.trig_mic_live_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.mic_live_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_mic_live_ind_pin_cbox.grid(column=3, row=4, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_tx_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 2:", font=self.default_font)
-        self.trig_tx_ind_label.grid(column=0, row=5, sticky="w", padx=20)
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
 
-        self.trig_tx_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.tx_trigger_ctrl_var, command=lambda value, combobox=1 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_tx_ind_ctrl_cbox.grid(column=1, row=5, columnspan =1, sticky="ew", padx=20)
+        #Bindings
+        self.__set_bindings()
 
-        self.tx_ind_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.tx_ctrl_id_var, font=self.default_font)
-        self.tx_ind_ctrl_id_label.grid(column=2, row=5)
+        #Update treeviewer with currrent data
+        #self.update_tree()
 
-        self.trig_tx_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.tx_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_tx_ind_pin_cbox.grid(column=3, row=5, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_cue_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 3:", font=self.default_font)
-        self.trig_cue_ind_label.grid(column=0, row=6, sticky="w", padx=20)
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+        self.update_tree()
+        self.__update_cbox_values()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-        self.trig_cue_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.cue_trigger_ctrl_var, command=lambda value, combobox=2 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_cue_ind_ctrl_cbox.grid(column=1, row=6, columnspan =1, sticky="ew", padx=20)
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-        self.cue_ind_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.cue_ctrl_id_var, font=self.default_font)
-        self.cue_ind_ctrl_id_label.grid(column=2, row=6)
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-        self.trig_cue_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.cue_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_cue_ind_pin_cbox.grid(column=3, row=6, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_lin1_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 4:", font=self.default_font)
-        self.trig_lin1_ind_label.grid(column=0, row=7, sticky="w", padx=20)
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            self.logger.debug(f"Input data list: {input_data_list}")
 
-        self.trig_lin1_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.line1_trigger_ctrl_var, command=lambda value, combobox=3 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_lin1_ind_ctrl_cbox.grid(column=1, row=7, columnspan =1, sticky="ew", padx=20)
+            display_instance_name : str = input_data_list[0][0]
+            display_template_id : str = input_data_list[0][1]
+            config_frame_list :list[Config_Frame] = input_data_list[0][2]
 
-        self.lin1_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.line1_ctrl_id_var, font=self.default_font)
-        self.lin1_ctrl_id_label.grid(column=2, row=7)
+            #Save the data to the database
+            self.__save_input_data(display_instance_name, display_template_id, config_frame_list)
 
-        self.trig_lin1_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.line1_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_lin1_ind_pin_cbox.grid(column=3, row=7, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_lin2_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 5:", font=self.default_font)
-        self.trig_lin2_ind_label.grid(column=0, row=8, sticky="w", padx=20)
+            self.input_frame.clear_all_entries()
 
-        self.trig_lin2_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.line2_trigger_ctrl_var, command=lambda value, combobox=4 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_lin2_ind_ctrl_cbox.grid(column=1, row=8, columnspan =1, sticky="ew", padx=20)
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
 
-        self.lin2_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.line2_ctrl_id_var, font=self.default_font)
-        self.lin2_ctrl_id_label.grid(column=2, row=8)
+            self.logger.info("Saved Input Data to Database")
 
-        self.trig_lin2_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.line2_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_lin2_ind_pin_cbox.grid(column=3, row=8, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.trig_control_ind_label = ctk.CTkLabel(master=group_setup_frame, text="Indicator 6:", font=self.default_font)
-        self.trig_control_ind_label.grid(column=0, row=9, sticky="w", padx=20)
+            self.update_tree()
 
-        self.trig_control_ind_ctrl_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.control_trigger_ctrl_var, command=lambda value, combobox=5 :self.populate_gpi_cbox(value, combobox, True), state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_control_ind_ctrl_cbox.grid(column=1, row=9, columnspan =1, sticky="ew", padx=20)
+        else:
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
-        self.control_ind_ctrl_id_label = ctk.CTkLabel(master=group_setup_frame, text="", textvariable=self.control_ctrl_id_var, font=self.default_font)
-        self.control_ind_ctrl_id_label.grid(column=2, row=9)
+    #Called when delete button is clicked
+    def delete_btn_command(self):
+        self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+        #Get the DB id of the selected treeview item
+        in_focus_db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
 
-        self.trig_control_ind_pin_cbox = ctk.CTkComboBox(master=group_setup_frame, variable=self.control_trigger_pin_var, state="readonly", font=self.default_font, dropdown_font=self.default_font)
-        self.trig_control_ind_pin_cbox.grid(column=3, row=9, columnspan =1, sticky="ew", padx=20)
-#---------------------------------------------------------------------------------------------------------------------------------------
-        self.save_btn = ctk.CTkButton(master=self, text="Save", fg_color="green", command=lambda:self.__save_entry_data(), font=self.default_font)
-        self.save_btn.grid(column=1, row=1, sticky="ns", columnspan="3", rowspan=2, pady=20)
+        if in_focus_db_id != None:
+            #Confirm with the user they want to delete
+            confirmation = confirm_delete()
 
-    def __verify_input(self) -> bool:
-        #Check Trigger Group name is not tempty
-        if self.trigger_group_name_var.get() == "":
-            self.logger.info("Trigger Group Name Empty")
-            return False
-        
-        #Check comboboxes are not empty
-        for i in range(6):
-            if (self.controller_name_cobobox_var_list[i].get() == "") or (self.controller_id_combobox_var_list[i].get() == "") or (self.gpi_combobox_var_list[i] == ""):
-                self.logger.info("One or more comboboxes are empty")
-                return False
-        #If all fields populated return True    
-        return True
+            #Check the display_instance is not assigned to a device
+            rows = self.db.get_1column_data("device_name", "devices", "display_instance_id", in_focus_db_id)
+            if rows == []:
+
+                if confirmation == True:
+                    for widget_table in widget_strings_list:
+                        #Delete Widget entries
+                        self.db.delete_row(widget_table, "display_instance_id", in_focus_db_id)
+
+                    self.logger.debug(f"Deleted widget config DB entries for display instance: {in_focus_db_id}")
+
+                    #Delete display instance row
+                    feedback_1 = self.db.delete_row("display_instances", "display_instance_id", in_focus_db_id)
+
+                    if feedback_1 == True:
+                            self.logger.info(f"Deleted row with {self.id_column} of {in_focus_db_id} in table {self.table}")
+
+                            #Clear the input widgets
+                            self.input_frame.clear_all_entries()
+
+                            #Set the State indicator to True
+                            self.set_new_item_state(True)
+
+                            #Update the tree
+                            self.update_tree()
+                    else:
+                            #Warn the user the item cannot be deleted to maintain database integrity
+                            delete_warning(str(feedback_1))
+            else:
+                #Warn the user the item cannot be deleted to maintain database integrity
+                delete_warning("Unable to delete display instance, the instance is being used on a device.")
+
+    #Save input data to the database
+    def __save_input_data(self, display_instance_name, display_template_id, config_frame_list):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Generate a timesatamp to show when last modified
+            timestamp = str(datetime.datetime.now())
+
+            #Add the validated data to the database
+            self.db.add_display_instance(display_instance_name, display_template_id, timestamp)
+            display_instance_id = self.db.get_last_insert_row_id()
+
+            #Save the widget config to the database
+            self.__save_widget_config(display_instance_id, config_frame_list)
+
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
+
+            #Generate a timesatamp to show when last modified
+            timestamp = str(datetime.datetime.now())
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            #Delete any previous entries
+            self.db.delete_row("analogue_clock", "display_instance_id", db_id)
+            self.db.delete_row("studio_clock", "display_instance_id", db_id)
+            self.db.delete_row("indicator", "display_instance_id", db_id)
+            self.db.delete_row("top_banner", "display_instance_id", db_id)
+
+            #Update the dipslay template database entries
+            self.db.update_row("display_instances", "display_instance_name", "display_instance_id", display_instance_name, db_id)
+            self.db.update_row("display_instances", "display_template_id", "display_instance_id", display_template_id, db_id)
+            self.db.update_row("display_instances", "last_changed", "display_instance_id", timestamp, db_id)
+            
+            #Re-add the widget configs
+            self.__save_widget_config(db_id, config_frame_list)
+
+    def __save_widget_config(self, display_instance_id:str, config_frame_list:list[Config_Frame]):
+        """Used to save widget config data to the DB used by the save_input_data function"""
+        #Add the widget configs
+        for config_frame in config_frame_list:
+            config_frame : Config_Frame
+
+            #Find out what widget the config is for
+            widget_string = config_frame.widget_string
+
+            if widget_string == "analogue_clock":
+                self.db.add_analogue_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "studio_clock":
+                self.db.add_studio_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "indicator":
+                input_logic_id_name :str = config_frame.config_list.pop(3)
+                input_logic_id = input_logic_id_name.split(":")[0]
+                config_frame.config_list.insert(4, input_logic_id)
+                self.db.add_indicator(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "top_banner":
+                image_id_name :str = config_frame.config_list.pop(0)
+                image_id = image_id_name.split(":")[0]
+                config_frame.config_list.insert(1, image_id)
+                self.db.add_top_banner(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Display_instance data
+            display_instance_id = item_data_list[0]
+            display_instance_name = item_data_list[1]
+            display_template_id = item_data_list[2]
+
+            #List to store config frames
+            config_frames_list = []
+
+            #Retrieve all widget data and convert into a config frame adding to the config frame list
+            for widget_string in widget_strings_list:
+                rows = self.db.get_current_row_data(widget_string, "display_instance_id", display_instance_id)
+                for row in rows:
+                    row : tuple
+                    display_instance_id = row[0]
+                    display_surface_id = row[1]
+
+                    config_list = list(row[2:len(row)])
+
+                    #Add names to ids
+                    if widget_string == "indicator":
+                        input_logic_id = config_list.pop(3)
+                        input_logic_name = self.db.get_1column_data("input_logic_name", "input_logics", "input_logic_id", input_logic_id)[0]
+                        input_logic_id_name = f"{input_logic_id}:{input_logic_name}"
+                        config_list.insert(4, input_logic_id_name)
+
+                    elif widget_string == "top_banner":
+                        image_id = config_list.pop(0)
+                        image_name = self.db.get_1column_data("image_name", "images", "image_id", image_id)[0]
+                        image_id_name = f"{image_id}:{image_name}"
+                        config_list.insert(1, image_id_name)
+
+                    config_frame = Config_Frame(widget_string, display_surface_id, config_list)
+                    config_frames_list.append(config_frame)
+
+            #Get the Display Instance Base frame object
+            display_instance_obj : Display_Instance_Config_Base_Frame = self.input_frame.get_widget_object(0)
+
+            #Build the display layout columns / rows
+            #Add all data to the Display Builder Widgets
+            display_instance_obj.set_data(display_instance_name, display_template_id, config_frames_list)
+
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+
+    def __update_cbox_values(self):
+        #Get all current display template entries
+        rows = self.db.get_2column_data("display_template_id", "display_template_name", "display_templates")
+        self.logger.debug(f"Rows:{rows}")
+
+        id_name_list = []
+
+        #Concatenate the id and names and add to a list
+        for row in rows:
+            display_template_id = str(row[0])
+            display_template_name = str(row[1])
+            id_name = f"{display_template_id}:{display_template_name}"
+            id_name_list.append(id_name)
+
+        #Add the list to the combobox
+        display_instance_frame : Display_Instance_Config_Base_Frame = self.input_frame.get_widget_object(0)
+        display_instance_frame.set_display_template_combobox_values(id_name_list)
+#-------------------------------------------------------------------------------------------------------------------
    
-    def __get_controller_id(self, index):
-        if self.controller_id_combobox_var_list[index].get() == 'None':
-            return None
-        else:
-            return self.controller_id_combobox_var_list[index].get()
+class Messaging_Groups(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
 
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
 
-#---CALLBACKS------------------------------------------------------------------------------------------------------------------------------------
+        row_list = [row1]
 
-    def __update_osc_strings(self, event):
-        self.logger.debug("Trigger Group Name changed, updating OSC addresses")
-        index = 0
-        for combobox in self.combobox_list:
-            combobox_value = combobox.get()
-            if combobox_value != "":
-                self.populate_gpi_cbox(combobox_value, index, False)
-            index += 1
-        
-        #Refreshes combobox options
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Message Groups", "message_groups", "message_group_name", "message_group_id", row_list)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_tree()
     
-    def refresh_cboxs(self, event):
-        self.logger.info("##########################--Refreshing trigger_groups combobox options--##########################")
-        #Query the database for id and names
-        query1 = self.db.get_2column_data("controller_id", "controller_name", "controllers")
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
 
-        #Clear the id / name lists
-        self.logger.info("Clearing id / name lists")
-        self.controller_ids_list.clear()
-        self.controller_names_list.clear()
-        
-        #For each row in the query response, add the row to the id/name list.
-        for item in query1:
-                #Add the name and id to the lists
-                self.logger.info(f"Adding name: {item[1]} and id: {item[0]} to lists.")
-                self.controller_ids_list.append(item[0])
-                self.controller_names_list.append(item[1])
-        #Add a Static Network option for using network OSC inputs
-        self.controller_ids_list.append("0")
-        self.controller_names_list.append("Network")
-        #Assign values to each combobox
-        self.logger.info(f"Assigning values: {self.controller_names_list}")
-        for combobox in self.combobox_list:
-            combobox.configure(values=self.controller_names_list)
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
 
-    #Populates the entry widgets with data when treeviewer item clicked
-    def __populate_widget_data(self, event):
-        self.logger.debug("##########################--Treeviewer item clicked--##########################")
+        valid_status, input_data_list = self.get_and_validate_input_data()
 
-        #Get the treeviewer index of the currently selected item
-        selected = self.tree.focus()
-        #Only update teh widgets if a valid tree item is selected
-        if selected != '':
-            #Clear the entry boxes before they are updated
-            self.__clear_widgets()
-            #Set the state indicator variable to False, indicating an item is to be modified
-            self.new_item = False
-            self.logger.info("Set State Indicator to False - an existing item is being modified")
-            #Populate the data fields - NEW VERSION
-            #Retrieve the id of the trigger group
-            db_id = self.tree.item(selected)["text"]
-            #Get the value data held in the database for the selected item - stripping the outer brackets
-            data = self.db.get_current_row_data("trigger_groups", "trigger_group_id", db_id)[0]
-            self.logger.debug(f"Database Returned:{data}")
-            self.logger.info("Populating trigger_group_id and trigger_group_name entry fields with data for selected tree viewer item")
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            message_group_name :str = input_data_list[self.name_input_widget_index]
 
-            #Populate the trigger group ID / name
-            self.trigger_group_id_var.set(data[0])
-            self.trigger_group_name_var.set(data[1])
+            #Save the data to the database
+            self.__save_input_data(message_group_name)
 
-            #Clear the ids, names and gpi lists
-            self.controller_ids_list.clear()
-            self.controller_names_list.clear()
+            self.input_frame.clear_all_entries()
 
-            #Query the trigger_mappings table, Select all from trigger-mappings where trigger id = data[0]
-            mappings = self.db.get_current_row_data("trigger_mappings", "trigger_group_id", data[0])
-            self.logger.debug(f"Data returned from database: {mappings}")
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
 
-            #Index variable for the loop to function
-            x=0
-            #Retrieve the controller_ids from the query response, adding these to the id's list
-            #  - IDs are every even number starting from 2 ending at 18
-            for mapping in mappings:
-                self.logger.debug(f"Extrapolating data from mapping: {mapping}")
-                #TODO: continue here.....
-                #Update the GUI Fields
-                trigger = mapping[1]
-                controller_id = mapping[2]
-                gpi = mapping[3]
-                self.logger.debug(f"Trigger:{trigger}, Controller ID:{controller_id}, GPI:{gpi}")
-                #Query database for controller name using the controller id
-                #If controller id = 0 this is the static network controller
-                if controller_id == None:
-                    controller_name = "Network"
-                else:
-                    controller_name = self.db.get_1column_data("controller_name", "controllers", "controller_id", controller_id)[0]
-                    self.logger.debug(f"Trigger: {trigger},Controller ID: {controller_id}, Controller Name: {controller_name}, GPI: {gpi}")
-                #Update Controller Name Combobox
-                controller_name_combobox_var = self.controller_name_combobox_var_dict[trigger]
-                controller_name_combobox_var.set(controller_name)
-                #Update Controller ID Combobox
-                controller_id_label_var = self.controller_id_combobox_var_dict[trigger]
-                controller_id_label_var.set(controller_id)
-                #Update Controller GPI Combobox
-                gpi_combobox_var = self.gpi_combobox_var_dict[trigger]
-                gpi_combobox_var.set(gpi)
-                #Increse the index variable by one
-                x += 1
-            self.logger.debug(f"All GUI elements updated")
+            self.logger.info("Saved Input Data to Database")
 
-            self.logger.debug("Assigning values to comboboxes with values in")
-            #Assign values to the GPI comboboxes that have values selected
-            #Below called funtion is a cllback and requires an "event", this is not used so a null parameter is specified
-            self.refresh_cboxs("null_event")
-
-            #Iteration variable used to select the correct combobox from the lists
-            i = 0
-            for combobox in self.controller_name_cobobox_var_list:
-                value = combobox.get()
-                self.logger.debug(f"Value held in controller name combobox at index: {i} is: {value}")
-                if value != "":
-                    self.populate_gpi_cbox(value, i, False)
-                i += 1
+            self.update_tree()
 
         else:
-            self.logger.info("No valid item selected in tree - cannot populate widgets")
-    
+            #Show a message box stating cannot save data
+            invalid_data_warning()
 
+    #Save input data to the database
+    def __save_input_data(self, message_group_name):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Add the validated data to the database
+            self.db.add_message_group(message_group_name)
+
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            self.db.update_row(self.table, self.name_column, self.id_column, message_group_name, db_id)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            name = item_data_list[1]
+
+            #Get the name of the message group from the database
+            message_group_name = self.db.get_1column_data("message_group_name", "message_groups", "message_group_id", db_id)[0]
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(message_group_name)
+            
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+
+#-------------------------------------------------------------------------------------------------------------------
+
+class Server_Config(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+
+        #Rows to make in the frame
+        row1 = Input_Row("", "server_config", "n/a")
+        self.server_config_widget_index = 0
+
+        row_list = [row1]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Server Configuration", "", "", "", row_list)
+
+        #Hide treeviewer and add / remove buttons / save button
+        self.tree.grid_forget()
+        self.add_btn.grid_forget()
+        self.del_btn.grid_forget()
+        self.save_btn.grid_forget()
+
+        #Reposition input frame
+        self.input_frame.grid_forget()
+        self.input_frame.grid(column=0, row=0, sticky="nsew", columnspan=4)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Set on raise callback
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Set the database reference
+        server_config_widget : Server_Config_Frame = self.input_frame.get_widget_object(self.server_config_widget_index)
+        server_config_widget.set_db_reference(self.db)
+
+        #Bindings
+        #self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        #self.update_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        #self.update_tree()
+    
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
+
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        pass
+
+    #Save input data to the database
+    def __save_input_data(self, message_group_name):
+        pass
+
+    def __update_input_widgets(self, event):
+        pass
+    

@@ -1,0 +1,94 @@
+{
+    "display_template_current": false,
+    "display_template_timestamp": "2025-12-17 08:12:59.559639",
+    "display_instance_timestamp": "2026-01-14 09:15:27.541429",
+    "display_template_id": 0,
+    "display_instance_id": 0,
+    "layout_matrix": [
+        [
+            "1",
+            "1"
+        ],
+        [
+            "2",
+            "7"
+        ],
+        [
+            "2",
+            "15"
+        ],
+        [
+            "2",
+            "14"
+        ],
+        [
+            "2",
+            "20"
+        ]
+    ],
+    "display_surfaces": {
+        "1": {
+            "widget_string": "top_banner",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 1,
+                "image_id": 2
+            }
+        },
+        "2": {
+            "widget_string": "studio_clock",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 2,
+                "timezone": "UTC+0: London (GMT)",
+                "timezone_label_enable": "Yes",
+                "legend_colour": "#ff2600"
+            }
+        },
+        "7": {
+            "widget_string": "indicator",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 7,
+                "indicator_label": "No",
+                "on_colour": "#ff2600",
+                "flash_enable": "No",
+                "input_logic_id": 1
+            }
+        },
+        "14": {
+            "widget_string": "indicator",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 14,
+                "indicator_label": "Template",
+                "on_colour": "#00f900",
+                "flash_enable": "No",
+                "input_logic_id": 5
+            }
+        },
+        "15": {
+            "widget_string": "indicator",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 15,
+                "indicator_label": "Display",
+                "on_colour": "#ff9200",
+                "flash_enable": "No",
+                "input_logic_id": 4
+            }
+        },
+        "20": {
+            "widget_string": "indicator",
+            "widget_config": {
+                "display_instance_id": 1,
+                "display_surface_id": 20,
+                "indicator_label": "Assigned",
+                "on_colour": "#00fcff",
+                "flash_enable": "No",
+                "input_logic_id": 2
+            }
+        }
+    },
+    "binary_response": false
+}

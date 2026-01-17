@@ -7,7 +7,7 @@ import logging
 import tkinter.font as tkFont
 
 class GUI:
-
+    """This is the main Config Tool Class."""
     def __init__(self):
         #This file contains the code for the tkinter main window
         #Set Custom Tkinter Styles
@@ -31,7 +31,7 @@ class GUI:
 
         #Set Window title and size.
         self.logger.debug("Setting self.root window attributes")
-        self.root.title("OATIS - Configuration Tool")
+        self.root.title("OATIS Configuration Tool")
         self.root.attributes("-fullscreen", True)
 
         #Check if the database has been initialised
@@ -49,7 +49,7 @@ class GUI:
                 self.db.initialise_database()
             else:
                 self.logger.info("Terminating Program")
-                quit()
+                self.root.destroy()
         
         self.default_font = ctk.CTkFont(default_font, default_size)
         default_tk_font = tkFont.nametofont('TkDefaultFont')
@@ -66,7 +66,7 @@ class GUI:
         self.logger.debug("Adding widgets to the self.root window")
         #Main Frame to hold all widgets / sub-frames in the window
         window_frame = ctk.CTkFrame(master=self.root)
-        window_frame.pack(pady=20, padx=20, fill="both", expand=True)
+        window_frame.pack(pady=0, padx=0, fill="both", expand=True)
 
         #Setup Columns / rows for window_frame
         window_frame.columnconfigure(0, weight=1)
@@ -78,66 +78,53 @@ class GUI:
         menu_frame.grid(column=0, row=0, columnspan=1, sticky="ew")
 
         #------------------------------MAIN WINDOW FRAME-TAB FRAMES STACKED--------------------------------------------------
-        image_store_frame = Image_Store(window_frame, self.db)
-        config_frame = Device_Config(window_frame, self.db)
-        gpio_conf_frame = GPIO_Config(window_frame, self.db)
-        trig_grp_frame = Trigger_Config(window_frame, self.db)
-        display_tmplt_frame = Display_Templates(window_frame, self.db)
-        messaging_grp_frame = Messaging_Groups(window_frame, self.db)
-        server_config_frame = Server_Config(window_frame, self.db)
+        image_store_frame = Image_Store(window_frame, self.db, True)
+        config_frame = Device_Config(window_frame, self.db, True)
+        gpio_config_frame = Controller_Config(window_frame, self.db, True)
+        input_triggers_frame = Input_Triggers(window_frame, self.db, True)
+        input_logics_frame = Input_Logics(window_frame, self.db, True)
+        output_logics_frame = Output_Logics(window_frame, self.db, True)
+        output_triggers_frame = Output_Triggers(window_frame, self.db, True)
+        display_template_frame = Display_Templates(window_frame, self.db, False)
+        display_instances_frame = Display_Instances(window_frame, self.db, False)
+        messaging_group_frame = Messaging_Groups(window_frame, self.db, True)
+        server_config_frame = Server_Config(window_frame, self.db, True)
+
+        self.frames_dict = {
+            "Image Store":image_store_frame,
+            "Device Config":config_frame,
+            "GPIO Config":gpio_config_frame,
+            "Input Triggers":input_triggers_frame,
+            "Input Logics":input_logics_frame,
+            "Output Logics":output_logics_frame,
+            "Output Triggers":output_triggers_frame,
+            "Display Templates":display_template_frame,
+            "Display Instances":display_instances_frame,
+            "Messaging Groups":messaging_group_frame,
+            "Server Config":server_config_frame
+            }
+        #Create a list of frame widgets used to pack the widgets
+        self.frame_widget_list = list(self.frames_dict.values())
 
         ##------------------------------Pack all the tab frames stacked, allows TkRaise() to be used--------------------------------------------------
-        for frame in (image_store_frame, config_frame, gpio_conf_frame, trig_grp_frame, display_tmplt_frame, messaging_grp_frame, server_config_frame):
+        for frame in self.frame_widget_list:
             frame.grid(column=0, row=1, columnspan=1, sticky="nsew")
 
         #------------------------------MENU FRAME WIDGETS--------------------------------------------------
-        #Creates the button menu to switch between tabs
-        self.image_store_btn = ctk.CTkButton(master=menu_frame, text="Image Store", font=self.default_font, command=lambda:self.show_frame(image_store_frame, 0))
-        self.image_store_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
+        #Make the menu options list from the frames dictionary
+        self.menu_options_list = list(self.frames_dict.keys())
 
-        self.device_config_btn = ctk.CTkButton(master=menu_frame, text="Device Config", font=self.default_font, command=lambda:self.show_frame(config_frame, 1))
-        self.device_config_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        self.gpio_config_btn = ctk.CTkButton(master=menu_frame, text="GPIO Config", font=self.default_font, command=lambda:self.show_frame(gpio_conf_frame, 2))
-        self.gpio_config_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        self.trig_grp_btn = ctk.CTkButton(master=menu_frame, text="Trigger Groups", font=self.default_font, command=lambda:self.show_frame(trig_grp_frame, 3))
-        self.trig_grp_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        self.display_tmplt_btn = ctk.CTkButton(master=menu_frame, text="Display Templates", font=self.default_font, command=lambda:self.show_frame(display_tmplt_frame, 4))
-        self.display_tmplt_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        self.messaging_grp_btn = ctk.CTkButton(master=menu_frame, text="Messaging Groups", font=self.default_font, command=lambda:self.show_frame(messaging_grp_frame, 5))
-        self.messaging_grp_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        self.server_config_btn = ctk.CTkButton(master=menu_frame, text="Server Config", font=self.default_font, command=lambda:self.show_frame(server_config_frame, 6))
-        self.server_config_btn.pack(side="left", pady=5, padx=10, fill="both", expand=True)
-
-        #Setup binding to GUI elements
-        #Binds device config button to a function that refreshes the combo vox options from the database
-        self.device_config_btn.bind("<ButtonRelease-1>", config_frame.refresh_cboxs)
-
-        #Binds image store button to a function that refreshes the combo box options from the database
-        self.display_tmplt_btn.bind("<ButtonRelease-1>", display_tmplt_frame.refresh_cboxs)
-
-        #Binds trigger groups button to a function that refreshes the combo box options from the database
-        self.trig_grp_btn.bind("<ButtonRelease-1>", trig_grp_frame.refresh_cboxs)
-
-        #Binds gpio config button to a function that refreshes the combo box options from the database
-        self.gpio_config_btn.bind("<ButtonRelease-1>", gpio_conf_frame.refresh_cboxs)
-
-    #Function to raise a stacked frame to the top, also changes selected button colour
-    def show_frame(self, frame, btn_id):
-        self.logger.debug(f"Raising frame: {frame} on button click from button: {btn_id}")
-        frame.tkraise()
-        menu_btn_list = [self.image_store_btn, self.device_config_btn, self.gpio_config_btn, self.trig_grp_btn, self.display_tmplt_btn, self.messaging_grp_btn, self.server_config_btn]
-        #Change all buttons back to default colour
-        self.logger.debug("Changing all buttons back to default colour")
-        for btn in menu_btn_list:
-            btn.configure(fg_color="#1F6AA5")
-        #Change the selected button
-        self.logger.debug(f"Changing selected button: {btn_id} green")
-        menu_btn_list[btn_id].configure(fg_color="green")
+        self.menu = ctk.CTkSegmentedButton(menu_frame, values=self.menu_options_list, command=self.menu_callback)
+        self.menu.pack(side="left", pady=5, padx=10, fill="both", expand=True)
+        
+    
+    #Raises the selected frame to the top
+    def menu_callback(self, selection):
+        frame_widget : BaseFrameNew = self.frames_dict[selection]
+        frame_widget.tkraise()
+        self.logger.info(f"Raised {selection} frame.")
+        frame_widget.on_raise_callback()
+        self.logger.info(f"Updated {selection} tree and combobox values.")
 
     def set_scaling(self):
         self.root.update_idletasks()

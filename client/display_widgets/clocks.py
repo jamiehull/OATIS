@@ -2,14 +2,26 @@ import pygame
 from pygame.locals import *
 import math
 from time import strftime
+from datetime import timezone
+from datetime import datetime
+from datetime import timedelta
 from datetime import datetime
 import pygame.gfxdraw
 from client.display_widgets.widget import Widget
+from modules.common import hex_to_rgb
 
 class Clock(Widget):
     """Base Clock class containing common functions and variables."""
-    def __init__(self):
+    def __init__(self, widget_config_dict):
         super().__init__()
+        #Config
+        self.timezone = widget_config_dict["timezone"]
+        self.timezone_label_enable = widget_config_dict["timezone_label_enable"]
+
+        #Calculate timezone offset
+        self.timezone_offset = self.calculate_utc_offset(self.timezone)
+        utc_offset = timedelta(hours=self.timezone_offset)
+        self.timezone_obj = timezone(offset=utc_offset)
 
         #Colours
         self.alarm_indicator_off_colour = (129, 129, 129) #Grey
@@ -49,21 +61,48 @@ class Clock(Widget):
         self.alarm_indicator_flashing_state = False
         self.alarm_indicator_current_colour = self.alarm_indicator_off_colour
 
-class Traditional_Clock(Clock):
-    def __init__(self, parent_surface):
-        super().__init__()
+    def calculate_utc_offset(self, timezone_sting:str):
+        offset = 0
+
+        #Remove leading UTC
+        timezone_string_rem_utc = timezone_sting.strip("UTC")
+
+        #Split string at : delimiter
+        timezone_sting_num_only = timezone_string_rem_utc.split(":")[0]
+
+        #Determine whether positive or negative
+        if timezone_sting_num_only[0] == "+":
+            print("UTC Offset is positive")
+            timezone_sting_num_only_positive = timezone_sting_num_only.strip("+")
+            offset = int(timezone_sting_num_only_positive)
+        
+        elif timezone_sting_num_only[0] == "-":
+            print("UTC Offset is negative")
+            offset = int(timezone_sting_num_only)
+
+        else:
+            print("Incorrect timezone string provided. Returning an offset of 0.")
+
+        return offset
+        
+class Analogue_Clock(Clock):
+    def __init__(self, parent_surface, widget_config_dict:dict):
+        super().__init__(widget_config_dict)
 
         #Store reference to the surface
         self.display_surface :pygame.Surface = parent_surface
 
+        #Config
+        self.clock_face_colour = hex_to_rgb(widget_config_dict["clock_face_colour"])
+        self.legend_colour = hex_to_rgb(widget_config_dict["legend_colour"])
+        self.hours_hand_colour = hex_to_rgb(widget_config_dict["hours_hand_colour"])
+        self.minutes_hand_colour = hex_to_rgb(widget_config_dict["minutes_hand_colour"])
+        self.seconds_hand_colour = hex_to_rgb(widget_config_dict["seconds_hand_colour"])
+        self.smooth_tick = widget_config_dict["smooth_tick"]
+
         #Display Colours
         self.bg_colour = (0,0,0) #Black
-        self.face_colour = (43, 43, 43) #White
-        self.label_colour = (255, 0, 0) #Red
-        self.hour_colour = (255, 0, 0) #Red
-        self.minutes_colour = (0, 255, 60) #Green
-        self.seconds_colour = (255, 234, 0) #Yellow
-        self.center_cover_colour = (255, 0, 0) #Red
+        self.center_cover_colour = self.legend_colour #Red
 
         #Angles Between Indicators
         self.seconds_angle = 6 #360 degrees / 60 = 6
@@ -87,12 +126,11 @@ class Traditional_Clock(Clock):
         #Distance from center of window to center of indicators
         self.seconds_center_distance = (smallest_dimension / 2.05) - (self.seconds_height/2)
         self.hours_center_distance = (self.seconds_center_distance + self.seconds_height/2) - (self.hours_height/2)
-
+        
         #Display Attributes
         self.hands_width = int(smallest_dimension*0.015)
-        self.alarm_indicator_radius = int(self.hands_width/2)
         self.face_radius = smallest_dimension / 2.0
-
+        
         #Find the centre of the display
         self.horizontal_center = self.display_width / 2
         self.vertical_center = self.display_height / 2
@@ -101,8 +139,18 @@ class Traditional_Clock(Clock):
         self.label_text_size = int(smallest_dimension*0.07)
         self.font = pygame.font.SysFont('arial', self.label_text_size)
 
+        #Timezone label config
+        self.timezone_label_distance = self.face_radius * 0.55
+        self.timezone_label_text_size = int(smallest_dimension*0.04)
+        self.timezone_font = pygame.font.SysFont('arial', self.timezone_label_text_size)
+
+        #Alarm indicator config
+        self.alarm_indicator_radius = int(self.face_radius*0.02)
+        self.alarm_indicator_distance = int(self.face_radius*0.66)
+
         #Draw the clock
         self.add_function_to_render(self.draw_face)
+        self.add_function_to_render(self.draw_timezone_label)
         self.add_function_to_render(self.draw_labels)
         self.add_function_to_render(self.draw_bg)
         self.add_function_to_render(self.draw_alarm_indicator)
@@ -193,8 +241,36 @@ class Traditional_Clock(Clock):
 
             #Draw the line indicators
             #pygame.gfxdraw.line(self.display_surface, x1, y1, x2, y2, self.seconds_colour)
-            pygame.gfxdraw.aapolygon(self.display_surface, points, self.hour_colour)
-            pygame.gfxdraw.filled_polygon(self.display_surface, points, self.hour_colour)
+            pygame.gfxdraw.aapolygon(self.display_surface, points, self.legend_colour)
+            pygame.gfxdraw.filled_polygon(self.display_surface, points, self.legend_colour)
+
+    def draw_timezone_label(self):
+        if self.timezone_label_enable == "Yes":
+            # create a text surface object and a rectangular object for the text surface object
+            label = self.timezone_font.render(self.timezone, True, self.legend_colour, self.clock_face_colour)
+            label_rect = label.get_rect()
+
+            #Get the text height
+            text_height = label_rect.bottom - label_rect.top
+            text_width = label_rect.right - label_rect.left
+            #print(F"Label Width:{text_width}, Label height:{text_height}")
+
+            #Find the largest dimension
+            if text_height > text_width:
+                largest_dimension = text_height
+            else:
+                largest_dimension = text_width
+
+            distance_from_center = self.timezone_label_distance
+
+            #Find the coordinates to place the text
+            x,y = self.find_coords_from_center(90, distance_from_center)
+    
+            #Set the position of the rectangular object.
+            label_rect.center = (x, y)
+
+            #Copy the text surface object to the display surface object at the center coordinate.
+            self.display_surface.blit(label, label_rect)
 
     def draw_labels(self):
         """Draw the clock text labels"""
@@ -205,7 +281,7 @@ class Traditional_Clock(Clock):
             current_angle = -90 + (i*self.hours_angle)
 
             # create a text surface object and a rectangular object for the text surface object
-            label = self.font.render(label_text, True, self.label_colour, self.face_colour)
+            label = self.font.render(label_text, True, self.legend_colour, self.clock_face_colour)
             label_rect = label.get_rect()
             
             #Get the text height
@@ -231,7 +307,7 @@ class Traditional_Clock(Clock):
             self.display_surface.blit(label, label_rect)
 
     def draw_alarm_indicator(self):
-        x, y =self.find_coords_from_center(90, self.hours_center_distance-(self.hours_height*4))
+        x, y =self.find_coords_from_center(90, self.alarm_indicator_distance)
 
         pygame.gfxdraw.aacircle(self.display_surface, int(x), int(y), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
         pygame.gfxdraw.filled_circle(self.display_surface, int(x), int(y), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
@@ -239,8 +315,8 @@ class Traditional_Clock(Clock):
     def draw_center_cover(self):
         """Draw the centre hands cover"""
         #Draw the circle
-        pygame.gfxdraw.aacircle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), self.hands_width, self.center_cover_colour)
-        pygame.gfxdraw.filled_circle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), self.hands_width, self.center_cover_colour)
+        pygame.gfxdraw.aacircle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), self.hands_width, self.legend_colour)
+        pygame.gfxdraw.filled_circle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), self.hands_width, self.legend_colour)
 
     def draw_face(self):
         """Draws the clock face circle background"""
@@ -251,8 +327,8 @@ class Traditional_Clock(Clock):
         radius = int(self.face_radius)
 
         #Draw the circle
-        pygame.gfxdraw.aacircle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), radius, self.face_colour)
-        pygame.gfxdraw.filled_circle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), radius, self.face_colour)
+        pygame.gfxdraw.aacircle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), radius, self.clock_face_colour)
+        pygame.gfxdraw.filled_circle(self.display_surface, int(self.horizontal_center), int(self.vertical_center), radius, self.clock_face_colour)
 
     #Draw the Hour indicators
     def draw_hours_hand(self, time_hours, time_minutes):
@@ -268,8 +344,8 @@ class Traditional_Clock(Clock):
         points = self.find_rectangle_points(current_angle, height, width, height/2)
 
         #Draw the hand
-        pygame.gfxdraw.aapolygon(self.display_surface, points, self.hour_colour)
-        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.hour_colour)
+        pygame.gfxdraw.aapolygon(self.display_surface, points, self.hours_hand_colour)
+        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.hours_hand_colour)
 
     #Draw the Minutes indicators
     def draw_minutes_hand(self, time_minutes, time_seconds):
@@ -285,14 +361,19 @@ class Traditional_Clock(Clock):
         points = self.find_rectangle_points(current_angle, height, width, height/2)
 
         #Draw the hand
-        pygame.gfxdraw.aapolygon(self.display_surface, points, self.minutes_colour)
-        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.minutes_colour)
+        pygame.gfxdraw.aapolygon(self.display_surface, points, self.minutes_hand_colour)
+        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.minutes_hand_colour)
 
     #Draw the Seconds indicators
-    def draw_seconds_hand(self, seconds):
+    def draw_seconds_hand(self, seconds, milliseconds):
+        #Additional angle added to enable smoothtick
+        if self.smooth_tick == "Yes":
+            smooth_tick_angle = milliseconds*self.seconds_angle
+        else:
+            smooth_tick_angle = 0
 
         #Calculate the current angle the circle will be drawn at from display center
-        current_angle = -90 + (seconds*self.seconds_angle)
+        current_angle = -90 + (seconds*self.seconds_angle) + (smooth_tick_angle)
         
         #Find the height of the seconds hand
         height = self.seconds_center_distance
@@ -302,37 +383,39 @@ class Traditional_Clock(Clock):
         points = self.find_rectangle_points(current_angle, height, width, height/2)
 
         #Draw the hand
-        pygame.gfxdraw.aapolygon(self.display_surface, points, self.seconds_colour)
-        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.seconds_colour)
+        pygame.gfxdraw.aapolygon(self.display_surface, points, self.seconds_hand_colour)
+        pygame.gfxdraw.filled_polygon(self.display_surface, points, self.seconds_hand_colour)
 
     def update_analogue_time(self):
         """Get the current time and update the clock graphics"""
-        current_time = datetime.now()
+        #Get the current time, adjusting for the selected timezone
+        offset_time = datetime.now(self.timezone_obj)
         #Get the current time in hours
-        time_hours = current_time.hour
+        time_hours = offset_time.hour
         #Get the current time in minutes
-        time_minutes = current_time.minute
+        time_minutes = offset_time.minute
         #Get the current time in seconds
-        time_seconds = current_time.second
+        time_seconds = offset_time.second
         #Get the current time in milliseconds
-        time_milliseconds = current_time.microsecond / 1000
+        time_microseconds = offset_time.microsecond / 1000000
 
-        self.draw_seconds_hand(time_seconds)
+        self.draw_seconds_hand(time_seconds, time_microseconds)
         self.draw_minutes_hand(time_minutes, time_seconds)
         self.draw_hours_hand(time_hours, time_minutes)
 
 class Studio_Clock(Clock):
-    def __init__(self, parent_surface):
-        super().__init__()
+    def __init__(self, parent_surface, widget_config_dict:dict):
+        super().__init__(widget_config_dict)
 
         #Store reference to the surface
         self.display_surface = parent_surface
 
+        #Config
+        self.legend_colour = hex_to_rgb(widget_config_dict["legend_colour"])
+
         #Display Colours
         self.bg_colour = (0,0,0) #Black
-        self.seconds_colour = (255, 0, 0) #Red
-        self.hour_on_colour = (255, 0, 0) #Red
-        self.hour_off_colour = (129, 129, 129) #Grey
+        self.off_colour = (129, 129, 129) #Grey
 
         #Angles Between Indicators
         self.seconds_angle = 6 #360 degrees / 60 = 6
@@ -360,14 +443,22 @@ class Studio_Clock(Clock):
         #Scale Variables
         self.seconds_radius = int(smallest_dimension*0.02)
         self.hours_radius = int(smallest_dimension*0.025)
-        self.alarm_indicator_radius = int(self.seconds_radius/2)
-        self.indicator_text_size = int(smallest_dimension*0.07)
         self.digital_clock_text_size = int(smallest_dimension/6)
+        self.face_radius = smallest_dimension / 2.0
 
         #Radius of circle
         self.seconds_distance = (smallest_dimension / 2.05) - (self.seconds_radius/2)
         self.hours_distance = (smallest_dimension / 2.3) - (self.hours_radius/2)
         self.indicator_distance = (smallest_dimension / 2.5) - (self.hours_radius/2)
+
+        #Timezone label config
+        self.timezone_label_distance = (self.seconds_distance + self.seconds_radius) * 0.55
+        self.timezone_label_text_size = int(smallest_dimension*0.04)
+        self.timezone_font = pygame.font.SysFont('arial', self.timezone_label_text_size)
+
+        #Alarm indicator config
+        self.alarm_indicator_radius = int(self.face_radius*0.02)
+        self.alarm_indicator_distance = int(self.face_radius*0.66)
 
         #Find the centre of the display
         self.horizontal_center = self.display_width / 2
@@ -376,6 +467,8 @@ class Studio_Clock(Clock):
         self.font = pygame.font.SysFont('arial', self.digital_clock_text_size)
 
         #Draw the clock
+        self.add_function_to_render(self.draw_bg)
+        self.add_function_to_render(self.draw_timezone_label)
         self.add_function_to_render(self.draw_hours)
         self.add_function_to_render(self.draw_alarm_indicator)
         self.add_function_to_render(self.update_analogue_time)
@@ -394,11 +487,12 @@ class Studio_Clock(Clock):
 
         return x_coord, y_coord
 
-    #Draw the Hour indicators
-    def draw_hours(self):
+    def draw_bg(self):
         #Fill the screen with a color to wipe away anything from last frame
         self.display_surface.fill(self.bg_colour)
 
+    #Draw the Hour indicators
+    def draw_hours(self):
         for i in range(0,13):
             #Calculate the current angle the circle will be drawn at from display center
             current_angle = i*self.hours_angle
@@ -407,18 +501,46 @@ class Studio_Clock(Clock):
             x, y = self.find_coords_from_center(current_angle, self.hours_distance)
 
             #Draw the circle
-            pygame.gfxdraw.aacircle(self.display_surface, int(x), int(y), self.hours_radius, self.seconds_colour)
-            pygame.gfxdraw.filled_circle(self.display_surface, int(x), int(y), self.hours_radius, self.seconds_colour)
+            pygame.gfxdraw.aacircle(self.display_surface, int(x), int(y), self.hours_radius, self.legend_colour)
+            pygame.gfxdraw.filled_circle(self.display_surface, int(x), int(y), self.hours_radius, self.legend_colour)
+
+    def draw_timezone_label(self):
+        if self.timezone_label_enable == "Yes":
+            # create a text surface object and a rectangular object for the text surface object
+            label = self.timezone_font.render(self.timezone, True, self.legend_colour, self.bg_colour)
+            label_rect = label.get_rect()
+
+            #Get the text height
+            text_height = label_rect.bottom - label_rect.top
+            text_width = label_rect.right - label_rect.left
+            #print(F"Label Width:{text_width}, Label height:{text_height}")
+
+            #Find the largest dimension
+            if text_height > text_width:
+                largest_dimension = text_height
+            else:
+                largest_dimension = text_width
+
+            distance_from_center = self.timezone_label_distance
+
+            #Find the coordinates to place the text
+            x,y = self.find_coords_from_center(90, distance_from_center)
+    
+            #Set the position of the rectangular object.
+            label_rect.center = (x, y)
+
+            #Copy the text surface object to the display surface object at the center coordinate.
+            self.display_surface.blit(label, label_rect)
 
     #Draw the seconds indicators
     def draw_seconds(self, i):
         for seconds in range(0,60):
             if seconds <= i:
                 #Active Indicator Colour
-                colour = self.hour_on_colour
+                colour = self.legend_colour
             else:
                 #Inactive indicator Colour
-                colour = self.hour_off_colour
+                colour = self.off_colour
 
             #Calculate the current angle the circle will be drawn at from display center
             current_angle = ((seconds*self.seconds_angle)-90)
@@ -431,7 +553,7 @@ class Studio_Clock(Clock):
             pygame.gfxdraw.filled_circle(self.display_surface, int(x), int(y), self.seconds_radius, colour)
 
     def draw_alarm_indicator(self):
-        x, y =self.find_coords_from_center(90, self.seconds_distance-(self.seconds_radius*8))
+        x, y =self.find_coords_from_center(90, self.alarm_indicator_distance)
 
         pygame.gfxdraw.aacircle(self.display_surface, int(x), int(y), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
         pygame.gfxdraw.filled_circle(self.display_surface, int(x), int(y), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
@@ -441,17 +563,19 @@ class Studio_Clock(Clock):
         time_seconds = strftime('%S')
         #Draw analogue clock seconds
         self.draw_seconds(int(time_seconds))
+        
 
     def update_digital_time(self):
-        #Get the current time
-        time_seconds = strftime('%S')
-        time_hr_min = strftime('%H:%M')
+        #Get the current time, adjusting for the selected timezone
+        offset_time = datetime.now(self.timezone_obj)
+        offset_time_seconds  = offset_time.strftime('%S')
+        offset_time_string_hr_min = offset_time.strftime('%H:%M')
 
         # create a text surface object and a rectangular object for the text surface object
-        text_hr_min = self.font.render(time_hr_min, True, "red", "black")
+        text_hr_min = self.font.render(offset_time_string_hr_min, True, self.legend_colour, self.bg_colour)
         text_rect_hr_min = text_hr_min.get_rect()
 
-        text_sec = self.font.render(time_seconds, True, "red", "black")
+        text_sec = self.font.render(offset_time_seconds, True, self.legend_colour, self.bg_colour)
         text_rect_sec = text_sec.get_rect()
         
         #Get the text height

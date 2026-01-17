@@ -9,6 +9,7 @@ import threading
 from tkinter import messagebox
 import sys
 from modules.common import *
+from modules.gui_templates import *
 
 from modules.tcp import TCP_Client
 
@@ -54,12 +55,10 @@ class Message_Console:
         #Client listen Socket - Defaults
         self.ip_address_var = tk.StringVar()
         self.listen_port = 1338
-        self.default_ip = "127.0.0.1"
 
         #Server listen Socket - Defaults
         self.server_ip_address_var = tk.StringVar()
         self.server_port = 1339
-        self.default_server_ip = "127.0.0.1"
 
         #Add the widgets        
         self.__add_widgets()
@@ -127,7 +126,7 @@ class Message_Console:
         self.tree_container_frame.rowconfigure(0, weight=1)
 
         #Column 1
-        self.column1_frame = Selection_Column(self.tree_container_frame, "Message Groups", "Select All", self.default_font, self.__select_all_groups_column1)
+        self.column1_frame = Selection_Column(self.tree_container_frame, "Message Groups", "Select All", self.default_font, self.__select_all_groups)
         self.column1_frame.grid(column=0, row=0, sticky="nsew")
 
         #Column 2
@@ -199,20 +198,17 @@ class Message_Console:
             self.settings_frame.set_device_ip(settings_dict["client_ip"])
             self.server_ip_address_var.set(settings_dict["server_ip"])
             self.settings_frame.set_server_ip(settings_dict["server_ip"])
-        else:
-            self.ip_address_var.set(self.default_ip)
-            self.settings_frame.set_device_ip(self.default_ip)
-            self.server_ip_address_var.set(self.default_server_ip)
-            self.settings_frame.set_server_ip(self.default_server_ip)
     
     #Callback used to raise settings frame
     def raise_settings_frame(self, event):
         #Populate ip combobox before raising
         self.settings_frame.populate_ip_combobox()
         self.settings_frame.tkraise()
+
     #Raises message console frame
     def raise_message_console_frame(self):
         self.message_console_frame.tkraise()
+
     #Opens a colour picker
     def choose_colour(self):
         #Generate a colour picker window returning the hex value of the colour picked
@@ -225,17 +221,6 @@ class Message_Console:
         except Exception as e:
             self.logger.warning("User selected no colour")
 
-    #Only updates a tree if the items in it are different
-    def __update_tree(self, tree : ttk.Treeview, updated_rows : list):
-        #Accepts a list containing each device or group in it's own list containting the id and name.
-        #Format [[id,name],...]
-        self.logger.debug(f"#######---Updating Tree Viewer---#######")
-        self.logger.debug(f"Data input to Tree: {updated_rows}")
-
-        #Clear the Treeview
-        self.column1_frame.clear_tree()
-        #Add the updated list
-        self.column1_frame.add_items(updated_rows)
     #Moves selected message groups from the first column to the middle selected column
     def __move_group_to_selected(self):
         #Get the selected items as a list
@@ -276,6 +261,7 @@ class Message_Console:
 
             if (id not in selected_groups_id_list) and (id not in active_groups_id_list):
                 self.column3_frame.add_item(id, name)
+                
     #Removes a selected message group from the middle selected column
     def __remove_group_from_selected(self):
         items_list = self.column3_frame.get_selected_items_id()
@@ -288,15 +274,19 @@ class Message_Console:
         self.logger.debug(f"Selected items by ID: {items_list}")
         for tree_id in items_list:
             self.column5_frame.remove_item(tree_id)
+
     #Clears all items from the middle column
     def __clear_selections(self):
         self.column3_frame.clear_tree()
+
     #Selects all groups in the first column
-    def __select_all_groups_column1(self):
+    def __select_all_groups(self):
         self.column1_frame.focus_all_items()
+
     #Selects all groups in the third column
     def __select_all_groups_column5(self):
         self.column5_frame.focus_all_items()
+
     #Updates active messages tree given a list of message groups in [[id, name],...] format.
     def __update_active_messages_tree(self, active_message_groups_list):
         self.column5_frame.clear_tree()
@@ -304,6 +294,7 @@ class Message_Console:
             id = message_group[0]
             name = message_group[1]
             self.column5_frame.add_item(id, name)
+
     #Changes the appearance of the server status indicator between red and green
     def __change_server_status_indicator(self, state):
         if state == "OK":
@@ -313,6 +304,7 @@ class Message_Console:
         else:
             self.server_ind.configure(fg_color="red")
             self.server_status_var.set("Server Offline")
+
     #Used to periodically update both the active_message groups lsite and message_groups list.
     def __update_gui(self):
         while True:
@@ -357,21 +349,11 @@ class Message_Console:
                             "bg_colour" : bg_colour}
                 data = selected_list
                 message = self.network.build_tcp_message(command, arguments, data)
-                response_bytes = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
-                response = self.network.decode_data(response_bytes)
-                self.logger.debug(f"Response from server: {response}")
-
-                #Read the response
-                response_dict = json.loads(response)
-
-                command = response_dict["command"]
-
-                arguments = response_dict["arguments"]
-                status = arguments["status"]
-                message_id = arguments["message_id"]
-                active_message_groups = arguments["active_message_groups"]
-
-                data = response_dict["data"]
+                output_command, output_arguments, output_data = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+              
+                status = output_arguments["status"]
+                message_id = output_arguments["message_id"]
+                active_message_groups = output_arguments["active_message_groups"]
 
                 if status == "OK":
                     self.column5_frame.clear_tree()
@@ -379,6 +361,7 @@ class Message_Console:
                         id = message_group[0]
                         name = message_group[1]
                         self.column5_frame.add_item(id, name)
+
                     #Clear the selected tree
                     self.column3_frame.clear_tree()
 
@@ -391,6 +374,7 @@ class Message_Console:
         else:
             self.logger.warning("Cannot send message as one or more fields are empty!")
             messagebox.showwarning("Unable to Send Message", "Cannot send message as one or more fields are empty!")
+    
     #Sends a stop message to the selected groups
     def __stop_message(self):
         self.logger.info("Attempting to send stop message...")
@@ -401,45 +385,30 @@ class Message_Console:
 
         #Only proceed if an item is selected
         if tree_id_list != ():
-            try:
-                stop_group_list = []
-                for tree_id in tree_id_list:
-                    id, name = self.column5_frame.get_item(tree_id)
-                    stop_group_list.append([id, name])
+            stop_group_list = []
+            for tree_id in tree_id_list:
+                id, name = self.column5_frame.get_item(tree_id)
+                stop_group_list.append([id, name])
 
-                #Build the Message and send
-                command = "/messaging/stop_message"
-                arguments = {"state" : False}
-                data = stop_group_list
-                message = self.network.build_tcp_message(command, arguments, data)
-                response_bytes = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
-                response = self.network.decode_data(response_bytes)
-                self.logger.debug(f"Response from server: {response}")
+            #Build the Message and send
+            command = "/messaging/stop_message"
+            arguments = {"state" : False}
+            data = stop_group_list
+            message = self.network.build_tcp_message(command, arguments, data)
+            output_command, output_arguments, output_data = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+            
+            status = output_arguments["status"]
+            active_message_groups = output_arguments["active_message_groups"]
 
-                #Read the response
-                response_dict = json.loads(response)
-
-                arguments = response_dict["arguments"]
-                status = arguments["status"]
-                active_message_groups = arguments["active_message_groups"]
-
-                data = response_dict["data"]
-
-                #If the response is ok, update the active messages column with active message groups
-                if status == "OK":
-                    self.__update_active_messages_tree(active_message_groups)
-
-            except ConnectionRefusedError as e:
-                self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
-                messagebox.showwarning("Unable to Send Message", f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
-            except Exception as e:
-                self.logger.error(f"Cannot connect to server: {e}")
-                messagebox.showwarning("Unable to Send Message", f"Cannot connect to server: {e}")
+            #If the response is ok, update the active messages column with active message groups
+            if status == "OK":
+                self.__update_active_messages_tree(active_message_groups)
 
         else:
             self.logger.warning("Unable to send stop message, nothing has been selected to stop!")
             messagebox.showwarning("Unable to Send Stop Message", "Unable to send stop message, nothing has been selected to stop!")
        #Requests a list of all in use message groups from the server and updates the message groups tree.
+    
     #Requests a list of configured message Groups and updates the Message Groups tree
     def update_message_groups(self):
         try:
@@ -447,15 +416,10 @@ class Message_Console:
             #Build the Message and send
             command = "/config/message_groups/get_used"
             message = self.network.build_tcp_message(command)
-            response = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+            output_command, output_arguments, output_data = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
 
-            #Desirialise recieved JSON template
-            response_dict = json.loads(response)
-            self.logger.debug(f"Response from server: {response_dict}")
-
-            arguments = response_dict["arguments"]
-            status = arguments["status"]
-            message_group_list = arguments["message_groups"]
+            status = output_arguments["status"]
+            message_group_list = output_arguments["message_groups"]
             
             #If the response is ok, update the message groups column
             if status == "OK":
@@ -480,15 +444,10 @@ class Message_Console:
             arguments = None
             data = None
             message = self.network.build_tcp_message(command, arguments, data)
-            response_bytes = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
-            response = self.network.decode_data(response_bytes)
-            self.logger.debug(f"Response from server: {response}")
-
-            #Read the response
-            response_dict = json.loads(response)
-            arguments = response_dict["arguments"]
-            status = arguments["status"]
-            active_message_groups = arguments["active_message_groups"]
+            output_command, output_arguments, output_data = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+            
+            status = output_arguments["status"]
+            active_message_groups = output_arguments["active_message_groups"]
 
             #If the response is ok, update the active messages column with active message groups
             if status == "OK":
@@ -503,19 +462,16 @@ class Message_Console:
             self.database_ind.configure(fg_color="red")
             self.sync_status_var.set("NOT SYNCED")
             return False
+        
     #Sends a heartbeat message to the server and updated the server gui status indicator
     def __heartbeat(self):
         while True:
             try:
                 message = self.network.build_tcp_message("heartbeat", None, None)
-                response = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
+                output_command, output_arguments, output_data = self.network.tcp_send(self.server_ip_address_var.get(), self.server_port, message)
 
-                #Read the response
-                response_dict = json.loads(response)
-                arguments = response_dict["arguments"]
-
-                status = arguments["status"]
-                timestamp = arguments["timestamp"]
+                status = output_arguments["status"]
+                timestamp = output_arguments["timestamp"]
 
                 if status == "OK":
                     self.logger.debug(f"Server last seen at: {timestamp}")
@@ -538,156 +494,6 @@ class Message_Console:
 
             time.sleep(self.heartbeat_poll_time)
 
-#Column 
-class Selection_Column(ctk.CTkFrame):
-    def __init__(self, parent, top_button_text, bottom_button_text, font, bottom_button_cmd):
-        super().__init__(parent)
-
-        #Setup Logging
-        self.logger = logging.getLogger(__name__)
-
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=0, pad=10)
-        self.rowconfigure(1, weight=1)
-        self.rowconfigure(2, weight=0)
-
-        #self.configure(fg_color="#494949")
-
-        self.top_button = ctk.CTkLabel(self, text=top_button_text, font=font, fg_color="#656565")
-        self.top_button.grid(column=0, row=0, sticky="nsew")
-
-        self.treeviewer = ttk.Treeview(self, style='Treeview')
-        self.treeviewer['show'] = 'headings'
-        self.treeviewer.configure(columns=("ID", "Name"))
-        self.treeviewer.column("ID", width=50, anchor="center", stretch=False)
-        self.treeviewer.heading("ID", text="ID")
-        self.treeviewer.heading("Name", text="Name")
-
-        self.treeviewer.column("Name", anchor="center", stretch=True)
-        self.treeviewer.grid(column=0, row=1, sticky="nsew")
-
-        self.bottom_button = ctk.CTkButton(self, text=bottom_button_text, font=font, command=bottom_button_cmd)
-        self.bottom_button.grid(column=0, row=2, sticky="nsew")
-
-    def get_tree(self):
-        return self.treeviewer
-    
-    def add_items(self, updated_rows):
-        #Add each item to the tree
-        for item in updated_rows:
-            id = item[0]
-            name = item[1]
-            self.treeviewer.insert("", tk.END, values=(id,name))
-
-        self.logger.info("Tree Updated")
-
-    def add_item(self, id, name):
-        self.treeviewer.insert("", tk.END, values=(id,name))
-        self.logger.info("Tree Updated")
-    
-    def clear_tree(self):
-        #Delete all current data in the tree by detecting current children.
-        for row in self.treeviewer.get_children():
-            self.treeviewer.delete(row)
-            self.logger.info(f"Deleted {row} from the tree")
-        self.logger.info("Cleared tree")
-        
-    def get_selected_items_id(self):
-        """Returns a list of tree ID's currently in focus"""
-        #get the item in focus
-        selected = self.treeviewer.selection()
-        self.logger.debug(f"Selected Items: {selected}")
-        return selected
-        
-    def get_item(self, tree_id):
-        """Returns the row at a specified tree id"""
-        item = self.treeviewer.item(tree_id)["values"]
-        id = item[0]
-        name=item[1]
-        return id, name
-    
-    def get_treeview_item_id(self, message_group_id):
-        """Return the treeviewer id of an item given it's message group id."""
-        #Get a list of all tree items by treeview id
-        treeviewer_ids = self.treeviewer.get_children()
-        treeviewer_id = ""
-
-        #Get the message group ID / name for each item and add to a list
-        for tree_id in treeviewer_ids:
-            id, name = self.get_item(tree_id)
-            if id == message_group_id:
-                treeviewer_id = tree_id
-        return treeviewer_id
-            
-    def convert_tree_ids_to_message_group_ids(self, tree_ids_list:list):
-        """Converts a list of tree ID's to Message Group ID's"""
-        message_group_ids = []
-        for tree_id in tree_ids_list:
-            id, name = self.get_item(tree_id)
-            message_group_ids.append(id)
-
-        return message_group_ids
-
-
-        
-    def update_tree(self, message_group_list:list):
-        new_tree_list = []
-        current_tree_list = []
-
-        #Compare the tree to the message_group list from the server
-        treeviewer_ids = self.treeviewer.get_children()
-
-        update_tree = False
-
-        #Compare lists item by item
-        for tree_id in treeviewer_ids:
-            id, name = self.get_item(tree_id)
-            current_tree_list.append(id)
-
-        for message_group in message_group_list:
-            id = message_group[0]
-            new_tree_list.append(id)
-
-        if len(new_tree_list) == len(current_tree_list):
-            for id in new_tree_list:
-                if id not in current_tree_list:
-                    update_tree = True
-        else:
-            update_tree = True
-
-        if update_tree == True:
-            #Keep a record of the currently selected (in focus items)
-            selected_tree_ids = self.get_selected_items_id()
-            #Convert the selected tree ID's to message group ID's
-            in_focus_message_group_ids = self.convert_tree_ids_to_message_group_ids(selected_tree_ids)
-
-            #Clear the Tree
-            self.clear_tree()
-            #Add the updated list
-            self.add_items(message_group_list)
-
-            #Re-focus the previously selected items
-            self.focus_items(in_focus_message_group_ids)
-        
-    def remove_item(self, selected_item):
-        self.treeviewer.delete(selected_item)
-        self.logger.info("Tree Updated")
-
-    def focus_all_items(self):
-        self.logger.debug("Focusing all items")
-        items_list = self.treeviewer.get_children()
-        self.logger.debug(f"Item to focus: {items_list}")
-        self.treeviewer.selection_add(items_list)
-
-    def focus_items(self, message_ids_list):
-        selected_tree_ids_list = []
-        for message_group_id in message_ids_list:
-            tree_id = self.get_treeview_item_id(message_group_id)
-            if tree_id != "":
-                selected_tree_ids_list.append(tree_id)
-        
-        self.treeviewer.selection_add(selected_tree_ids_list)
-
 #Provides an interface to configure client ip and server ip
 class Settings(ctk.CTkFrame):
     def __init__(self, parent, message_console_display):
@@ -696,7 +502,7 @@ class Settings(ctk.CTkFrame):
         #Setup Logging
         self.logger = logging.getLogger(__name__)
 
-        #Display Instance - allows gui interaction to raise message console frame
+        #RDS_Display Instance - allows gui interaction to raise the RDS frame
         self.message_console_display : Message_Console = message_console_display
 
         #Variables
@@ -778,7 +584,6 @@ class Settings(ctk.CTkFrame):
 
     def __return_to_main_screen(self):
         self.message_console_display.raise_message_console_frame()
-
 
     def populate_ip_combobox(self):
         ip_list=get_machine_ip()

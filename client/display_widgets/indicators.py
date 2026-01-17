@@ -183,7 +183,153 @@ class Indicator_Lamps_Vertical(Widget):
 
 
 
+import pygame
+from pygame.locals import *
+from client.display_widgets.widget import Widget
 
+class Indicator_Lamp(Widget):
+    """Creates a single indicator lamp."""
+    def __init__(self, parent_surface, widget_config_dict:dict):
+        super().__init__()
+
+        #Config
+        self.indicator_label = widget_config_dict["indicator_label"]
+        self.indicator_on_colour = widget_config_dict["on_colour"]
+        self.flash_enable = widget_config_dict["flash_enable"]
+        self.resized_indicator_label_list = []
+
+        #Store reference to the surface
+        self.display_surface :pygame.Surface = parent_surface
+
+        #Display Colours
+        self.bg_colour = (0,0,0) #Black
+        self.text_colour = (0, 0, 0) #Black
+        self.indicator_off_colour = (123, 122, 122) #Grey
+        self.indicator_current_colour = self.indicator_off_colour #Set default state as off
+
+        #Get the resolution of the surface
+        self.display_width = self.display_surface.get_width()
+        self.display_height = self.display_surface.get_height()
+        print(f"Indicator Display Area:{self.display_width},{self.display_height}")
+
+        #Scale variables
+        self.vertical_pad = self.display_height*0.15
+        self.horizontal_pad = self.display_width*0.07
+        self.indicator_text_x_pad = 15
+        self.indicator_width = self.display_width - (2 * self.horizontal_pad)
+        self.indicator_height = (self.display_height - (2 * self.vertical_pad))
+
+        #Default Text Size and font
+        self.text_size = int(self.indicator_height * 0.8)
+        self.font = pygame.font.SysFont('arial', self.text_size)
+
+        #Flash Frequency
+        self.flash_period = 1000 #Time between flashes in ms
+        self.flashing = False #True if the indicator is currently flashing, false if not
+        self.change_time = 0 #Time for next flash in ms
+
+        #Calculate the size of the indicator text label so it fits in the indicator returning a pygame font object
+        self.resized_label =  self.__resize_text(self.indicator_label)
+
+        self.add_function_to_render(self.__flash)
+        self.add_function_to_render(self.draw_indicators)
+
+    def __resize_text(self, text):
+        """Resizes text to fit in an indicator and returns a pygame Font object."""
+        text_size = self.text_size
+        
+        while True:
+            font = pygame.font.SysFont('arial', text_size)
+            label_text = font.render(text, True, self.text_colour)
+            label_text_width = label_text.get_width()
+            if label_text_width >= (int(self.indicator_width) - self.indicator_text_x_pad):
+                print(f"Label Text width:{label_text_width}, indicator width:{self.indicator_width}")
+                text_size -= 1
+            else:
+                break
+
+        return label_text
+        
+    def draw_indicators(self):
+        #Fill the screen with a color to wipe away anything from last frame
+        self.display_surface.fill(self.bg_colour)
+
+        #Origin to start drawing indicators from
+        current_x_position = 0 + self.horizontal_pad
+        current_y_position = 0 + self.vertical_pad
+
+        #Make a rectangle object
+        indicator_rect = pygame.Rect((current_x_position, current_y_position),(self.indicator_width, self.indicator_height))
+        pygame.draw.rect(self.display_surface, self.indicator_current_colour, indicator_rect, border_radius=15)
+
+        # create a text surface object and a rectangular object for the text surface object
+        label_text_rect = self.resized_label.get_rect()
+
+        #Set the position of the rectangular object.
+        label_text_rect.center = (current_x_position + (self.indicator_width/2), current_y_position + (self.indicator_height/2))
+
+        #Copy the text surface object to the display surface object at the center coordinate.
+        self.display_surface.blit(self.resized_label, label_text_rect)
+
+    def __flash(self):
+        """Flashes an indicator given it's index, starting at 0, top down."""
+
+        #Get the current time in ms
+        current_time = pygame.time.get_ticks()
+
+        #If the current time is greater than the next change time and the indicator is in the flashing list
+        #flash the indicator
+        if current_time >= self.change_time:
+            if self.flashing == True:
+                #Indicator on
+                if self.indicator_current_colour == self.indicator_off_colour:
+                    self.indicator_current_colour = self.indicator_on_colour
+
+                #Indicator Off
+                else:
+                    self.indicator_current_colour = self.indicator_off_colour
+
+            self.change_time = current_time + self.flash_period
+
+    def __indicator_flash_enable(self):
+        """Makes an indicator Flash."""
+        if self.flashing == False:
+            self.flashing = True
+
+    def __indicator_flash_disable(self):
+        """Turns flashing off for specified indicators."""
+        if self.flashing == True:
+            self.flashing = False
+            #Set colour back to off colour
+            self.indicator_current_colour = self.indicator_off_colour
+
+    def __indicator_on(self):
+        """Turns an indicator on."""
+        print(f"Turning indicator on")
+        self.indicator_current_colour = self.indicator_on_colour
+
+    def __indicator_off(self):
+        """Turns an indicator off."""
+        print(f"Turning indicator off")
+        self.indicator_current_colour = self.indicator_off_colour
+
+    def trigger_indicator_on(self):
+        """Triggers an indicator on, triggers either a steady on or flash depending on display template config."""
+        if self.flash_enable == "Yes":
+            self.__indicator_flash_enable()
+        else:
+            self.__indicator_on()
+
+    def trigger_indicator_off(self):
+        """Turns an indicator off."""
+        if self.flash_enable == "Yes":
+            self.__indicator_flash_disable()
+        else:
+            self.__indicator_off()
+
+        
+
+        
 
             
 

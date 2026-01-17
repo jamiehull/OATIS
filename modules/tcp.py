@@ -2,16 +2,19 @@ import logging
 import socket
 import struct
 import json
+import socket
+import struct
 
 class TCP_Client:
     def __init__(self):
         #Setup Logging
         self.logger = logging.getLogger(__name__)
 
-    def tcp_send(self, ip, port, message):
+    def tcp_send(self, ip, port, message, raw_response:bool=False):
+        """Sends a message via TCP, If raw response is true, we return the bytes as they were sent, if false we extract the command arguments and data."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             #Set timeout for response
-            sock.settimeout(1)
+            sock.settimeout(0.5)
             #Connect to Server
             self.logger.debug(f"Establishing connection to server at: {ip}:{port}")
             sock.connect((ip, port))
@@ -19,23 +22,41 @@ class TCP_Client:
 
             #Send Data
             self.logger.debug("Sending data to server...")
-            sock.sendall(bytes(message, 'ascii'))
+            sock.sendall(bytes(message, 'utf-8'))
 
             #Recieve the first 4 bytes of the message to read it's length
             self.logger.debug("Recieving message length preamble from server...")
             message_length_encoded = self.recvall(sock, 4)
+
             #Decode the length
             self.logger.debug("Decoding message length preamble...")
             message_length_decoded = struct.unpack('>I', message_length_encoded)[0]
             self.logger.debug(f"Message of length:{message_length_decoded} to be recieved.")
+
             #Recieve all data now we know the length of the message - stored as a byte array
             self.logger.debug("Recieving data from server...")
-            message : bytearray = self.recvall(sock, message_length_decoded)
-            #Decode the byte-array
-            self.logger.debug("Decoding message...")
-            decoded_message = bytes(message)
+            message_bytearray : bytearray = self.recvall(sock, message_length_decoded)
+
+            #Encode the byte-array to bytes
+            self.logger.debug("Encoding recieved bytearray to bytes...")
+            message_bytes = bytes(message_bytearray)
+
+            if raw_response == True:
+                return message_bytes
             
-            return decoded_message
+            else:
+                #Decode the bytes to a string
+                self.logger.debug("Decoding bytes to a string message...")
+                decoded_message = self.decode_data(message_bytes)
+
+                #Read the response
+                message_dict = json.loads(decoded_message)
+
+                command = message_dict["command"]
+                arguments = message_dict["arguments"]
+                data = message_dict["data"]
+
+                return command, arguments, data
 
     def recvall(self, sock, n):
         # Helper function to recv n bytes or return None if EOF is hit
@@ -62,6 +83,7 @@ class TCP_Client:
 
         return json_message
     
+    
 #Builds a JSON response message using a set format- data and args are optional
 def build_tcp_response_message(command:str, arguments:dict=None, data:list=None) -> str:
     json_dictionary = {}
@@ -70,7 +92,7 @@ def build_tcp_response_message(command:str, arguments:dict=None, data:list=None)
     json_dictionary["data"] = data
     
     #Convert the Dictionary to JSON
-    json_message = json.dumps(json_dictionary)
+    json_message = json.dumps(json_dictionary, indent=4)
 
     return json_message
 

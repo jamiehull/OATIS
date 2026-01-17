@@ -1,5 +1,4 @@
 #Widget Superclass
-
 class Widget:
     """Base Widget class containing functions common to all Widgets."""
     def __init__(self):
@@ -15,5 +14,3 @@ class Widget:
         """Calls all functions in the render list in order"""
         for render_function in self.__render_list:
             render_function()
-
-    

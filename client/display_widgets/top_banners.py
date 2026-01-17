@@ -81,7 +81,9 @@ class Ticker_Banner(Widget):
             self.display_surface.blit(self.ticker_text, self.ticker_text_rect)
 
         else:
-            self.bg_colour = (0,0,0) #Black
+            self.bg_colour = (0, 0, 0, 0) #Black
+            #Fill the screen with a color to wipe away anything from last frame
+            self.display_surface.fill(self.bg_colour)
             
     def ticker_on(self):
         self.ticker_enabled = True
@@ -90,7 +92,7 @@ class Ticker_Banner(Widget):
         self.ticker_enabled = False
         
 class Logo_Date_Location_Top_Banner:
-    def __init__(self, parent_surface):
+    def __init__(self, parent_surface, widget_config:dict):
 
         #Store reference to the surface
         self.display_surface :pygame.Surface = parent_surface
@@ -111,19 +113,24 @@ class Logo_Date_Location_Top_Banner:
             smallest_dimension = self.display_height
 
         #Text Size and font
-        self.text_size = int(self.display_height*0.4)
+        self.text_size = int(self.display_height*0.35)
         self.font = pygame.font.SysFont('arial', self.text_size)
 
-        #Currently rendered data string
+        #Scale factors
+        self.logo_scale_factor = 0.6
+
+        #Currently rendered date string
         self.current_date_str = ""
+        #self.current_year_str = ""
 
         #Create the background
         self.display_surface.fill(self.bg_colour)
 
-
         #Default Text and logo path
-        self.default_logo_path = "client/data/default_logo.png"
-        self.logo_path = "client/data/logo.png"
+        self.default_logo_path = "client/data/defaults/default_logo.png"
+        self.logo_image_id = str(widget_config.get("image_id"))
+        self.logo_filename = f"{self.logo_image_id}.png"
+        self.logo_path = os.path.join("client/data/images", self.logo_filename)
         self.location_str = "Location"
 
         #Set the logo image
@@ -157,7 +164,7 @@ class Logo_Date_Location_Top_Banner:
 
 
         #Work out logo scaling
-        logo_max_height = self.display_height/1.2
+        logo_max_height = self.display_height * self.logo_scale_factor
         logo_scale_factor = logo_original_height / logo_max_height
         logo_scaled_width = logo_original_width / logo_scale_factor
         logo_scaled_height = logo_original_height / logo_scale_factor
@@ -181,22 +188,31 @@ class Logo_Date_Location_Top_Banner:
         # create a text surface object and a rectangular object for the text surface object
         self.date_text = self.font.render(self.current_date_str, True, self.text_colour, self.bg_colour)
         self.date_text_rect = self.date_text.get_rect()
+        #self.year_text = self.font.render(self.current_year_str, True, self.text_colour, self.bg_colour)
+        #self.year_text_rect = self.year_text.get_rect()
 
         #Get the text width
         date_text_width = self.date_text.get_width()
         date_text_height = self.date_text.get_height()
+        #year_text_width = self.year_text.get_width()
+        #year_text_height = self.year_text.get_height()
 
         #Set the position of the rectangular object.
         self.date_text_rect.center = (date_text_width/2, date_text_height/2)
+        #self.year_text_rect.topleft = (0, date_text_height*0.85)
         
     def __render_date(self):
         date_str = strftime('%a %d %b %Y')
+        #year_str = strftime('%Y')
+
         if self.current_date_str != date_str:
             self.current_date_str = date_str
+            #self.current_year_str = year_str
             self.__set_date()
 
         #Copy the text surface object to the display surface object at the center coordinate.
         self.display_surface.blit(self.date_text, self.date_text_rect)
+        #self.display_surface.blit(self.year_text, self.year_text_rect)
 
     def set_location(self, location_string):
         """Sets the location string variable."""

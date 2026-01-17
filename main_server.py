@@ -1,158 +1,123 @@
-from modules.osc import OSC_Server
-from server.router import Router
-from server.controller import Controller
-from server.tcp_server import *
-from database.database_connection import DB
-from modules.common import *
-import threading
-import time
+import customtkinter as ctk
 import logging
-from sys import exit
+import tkinter.font as tkFont
+from server.server_control import Server_Control
+from threading import Thread
+from tkinter import StringVar
+from database.database_connection import DB
 
-class Main_Server:
+class Server_GUI:
     def __init__(self):
+
+        #This file contains the code for the tkinter main window
+        #Set Custom Tkinter Styles
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+
         #Setup Logging
         self.logger = logging.getLogger(__name__)
-        logging.basicConfig(level=logging.DEBUG)
+        logger_format = "[%(filename)s:%(lineno)s => %(funcName)30s() ] %(message)s"
+        logging.basicConfig(level=logging.DEBUG, format=logger_format)
 
-        #Server listen Socket - Defaults
-        self.ip = "127.0.0.1"
-        self.osc_port = 1337 #UDP and TCP Triggering
-        self.tcp_port = 1339 #TCP File Transfers Only
-        self.settings_path = "server/settings.json"
-        self.serial_port_index = 4
+        #Create the Window
+        self.logger.debug("Creating the self.root tkinter window")
+        self.root = ctk.CTk()
 
-        #Read stored ip settings and set them
-        self.__read_and_set_settings()
+        #Set Window title and size.
+        self.logger.debug("Setting self.root window attributes")
+        self.root.title("OATIS Server")
+        self.root.attributes("-fullscreen", False)
 
-        #Thread List
-        self.controller_thread_list = []
+        self.default_font = ctk.CTkFont('Arial', 20)
+        default_tk_font = tkFont.nametofont('TkDefaultFont')
+        default_tk_font.configure(family='Arial', size=15)
 
-        #Create an instance of the database connection and router
-        self.db = DB() 
-        self.router = Router()
+        #Status Variables
+        self.server_running = StringVar()
+        self.server_running.set("Stopped")
+        self.ip_address = StringVar()
 
-        #Verify the database
-        db_status = self.db.verify_database_setup()
-        if db_status != True:
-            self.logger.error("Database invalid or missing, please rebuild the database in config tool and re-launch the server.")
-            quit()
+        #Add the widgets        
+        self.__add_widgets()
 
-        #Create an instance of the OSC_Server
-        self.osc_server = OSC_Server(self.ip, self.osc_port)
+        self.logger.info("Entering Main Loop")
+        self.root.mainloop()
 
-        #Map OSC addresses to handler callback functions in router
-        self.__map_osc_handlers()
+    def __add_widgets(self):
+        #------------------------------MAIN WINDOW FRAME--------------------------------------------------
+        self.logger.debug("Adding widgets to the self.root window")
+        #Main Frame to hold all widgets / sub-frames in the window
+        self.window_frame = ctk.CTkFrame(master=self.root)
+        self.window_frame.pack(pady=5, padx=5, fill="both", expand=True)
 
-        #Start the OSC_Server on a seperate thread
-        self.__start_osc_server_threads()
-        if (self.osc_server.tcp_server_running != True) and (self.osc_server.udp_server_running != True):
-            self.logger.error("Unable to start the OSC server, Shutting Down...")
-            exit(0)
+        #Setup Columns / rows for window_frame
+        for i in range(0, 2):
+            self.window_frame.columnconfigure(i, weight=1)
+        for i in range(0, 2):
+            self.window_frame.rowconfigure(i, weight=1)
 
-        #Create an instance of the threaded TCP Server
-        try:
-            self.tcp_server = ThreadedTCPServer((self.ip, self.tcp_port), ThreadedTCPRequestHandler)
-        except Exception as e:
-            self.logger.error(f"Unable to start TCP Server, reason:{e}")
-            self.logger.error("Shutting down...")
-            exit(0)
+        self.start_button = ctk.CTkButton(self.window_frame, text="Start Server", command=self.__start_server_thread)
+        self.start_button.grid(column=0, row=0, sticky="")
 
-        #Start the TCP_Server on a seperate thread
-        self.__start_tcp_server_thread()
+        self.stop_button = ctk.CTkButton(self.window_frame, text="Stop Server", command=self.__stop_server)
+        self.stop_button.grid(column=1, row=0, sticky="")
 
-        #Setup Configured GPIO Controllers
-        #Query the database to return configured controllers
-        config = self.db.get_current_table_data("controllers")
-        self.controller_server_list = []
-        self.controller_port_list = []
-        for controller_config in config:
-            controller_port = controller_config[self.serial_port_index] 
+        self.bottom_frame = ctk.CTkFrame(self.window_frame, fg_color="#1B1B1B")
+        self.bottom_frame.grid(column=0, row=1, columnspan=2, sticky="esw")
 
-            #Create an instance of controller passing in the controlers config from the database and a handler for dealing with input changes
-            controller_server :Controller  = Controller(controller_config, self.router.handle_gpi) 
+        #Setup Columns / rows for window_frame
+        for i in range(0, 2):
+            self.bottom_frame.columnconfigure(i, weight=1)
+        for i in range(0, 1):
+            self.bottom_frame.rowconfigure(i, weight=1)
 
-            controller_status = controller_server.setup_controller_connection()
+        self.ip_label = ctk.CTkLabel(self.bottom_frame, text="IP Address", textvariable=self.ip_address)
+        self.ip_label.grid(column=0, row=0, sticky="w")
 
-            if controller_status == True:
-                self.__start_controller_server_thread(controller_server.start_loop)
-                self.controller_server_list.append(controller_server)
-                self.controller_port_list.append(controller_port)
+        self.status_label = ctk.CTkLabel(self.bottom_frame, text="Status", textvariable=self.server_running)
+        self.status_label.grid(column=1, row=0, sticky="e")
 
-        #Shows server heartbeat message - keeps main thread alive
-        while True:
-            self.__show_server_status()
+    def __start_server_thread(self):
+        if (self.server_running.get() == "Stopped") or (self.server_running.get() == "Database not initialised"):
+            #Check if the database has been initialised
+            db = DB()
+            self.logger.debug("Determining state of the database")
+            db_status = db.verify_database_setup()
 
-    def __map_osc_handlers(self):
-        self.osc_server.map_osc_handler('/*/signal-lights/*', self.router.handle_signal_light_osc_message)
-        #self.osc_server.map_osc_handler('/messaging/send_to_multiple', self.router.handle_ticker_on_osc_message)
-        #self.osc_server.map_osc_handler('/messaging/stop_message', self.router.handle_ticker_off_osc_message)
+            if db_status == True:
+                self.server_thread = Thread(target=self.__start_server, daemon=True)
+                self.server_thread.start()
+            else:
+                self.server_running.set("Database not initialised")
+                self.logger.info("Cannot start Server, database is not initialised. Please initialise the DB in config tool before launching the server.")
 
-    def __start_tcp_server_thread(self):
-        #Start the TCP_Server on a seperate thread
-        self.tcp_server_thread :threading.Thread = threading.Thread(target=self.tcp_server.serve_forever, daemon=True)
-        self.tcp_server_thread.start()
-        self.logger.debug(f"TCP Server loop running in thread: {self.tcp_server_thread.name}")
+        else:
+            self.logger.info("Cannot start Server, a Server Instance is already running!")
+        
+    def __start_server(self):
+        if (self.server_running.get() == "Stopped") or (self.server_running.get() == "Database not initialised"):
+            self.server_running.set("Booting")
+            self.logger.info("Starting Server...")
+            self.server = Server_Control(self.server_running)
+            self.server_running.set(self.server.start_server())
+            self.ip_address.set(self.server.get_ip_address())
+            self.logger.info(f"Server Status: {self.server_running.get()}")
 
-    def __start_osc_server_threads(self):
-        #Start the UDP OSC_Server on a seperate thread
-        self.udp_osc_server_thread :threading.Thread = threading.Thread(target=self.osc_server.start_udp_osc_server, daemon=True)
-        self.udp_osc_server_thread.start()
-        self.logger.debug(f"UDP OSC Server loop running in thread: {self.udp_osc_server_thread.name}")
-        #Start the TCP OSC_Server on a seperate thread
-        self.tcp_osc_server_thread :threading.Thread = threading.Thread(target=self.osc_server.start_tcp_osc_server, daemon=True)
-        self.tcp_osc_server_thread.start()
-        self.logger.debug(f"TCP OSC Server loop running in thread: {self.tcp_osc_server_thread.name}")
-
-    def __start_controller_server_thread(self, target_function):
-        #Start the GPI controller in a seperate thread
-        controller_thread :threading.Thread = threading.Thread(target=target_function, daemon=True)
-        controller_thread.start()
-        self.logger.debug(f"Controller Server loop running in thread: {controller_thread.name}")
-        self.controller_thread_list.append(controller_thread)
-
-    def __read_and_set_settings(self):
-        #Read IP Settings file
-        settings_dict = open_json_file(self.settings_path)
-
-        #Only set ip's if settings file exists 
-        if settings_dict != False:
-            self.ip = settings_dict["server_ip"]
-
-    def __show_server_status(self):
-        controller_status_list = []
-        for thread in self.controller_thread_list:
-            status = thread.is_alive()
-            controller_status_list.append(status)
-
-        self.logger.debug("Server Heartbeat...")
-        self.logger.debug(f"TCP Server              Status:{self.tcp_server_thread.is_alive()},  Listening on {self.ip}:{self.tcp_port}")
-        self.logger.debug(f"UDP OSC Server          Status:{self.udp_osc_server_thread.is_alive()},  Listening on {self.ip}:{self.osc_port} UDP")
-        self.logger.debug(f"TCP OSC Server          Status:{self.tcp_osc_server_thread.is_alive()},  Listening on {self.ip}:{self.osc_port} TCP")
-        self.logger.debug(f"Controller Server       Status:{controller_status_list},  Listening on {self.controller_port_list}")
-        self.logger.debug(f"Number of Active Threads:{threading.active_count()}")
-        time.sleep(10)
+            #If we get errors clear the server instance
+            if self.server_running == "Stopped":
+                del self.server
 
     def __stop_server(self):
-        if self.controller_thread.is_alive() == True:
-            self.controller_server.stop_loop()
-            self.logger.info("Controller Server Shutdown")
-        if self.udp_osc_server_thread.is_alive() == True:
-            self.osc_server.stop_udp_osc_server()
-            self.logger.info("UDP OSC Server Shutdown")
-        if self.tcp_osc_server_thread.is_alive() == True:
-            self.osc_server.stop_tcp_osc_server()
-            self.logger.info("TCP OSC Server Shutdown")
-        if self.tcp_server_thread.is_alive() == True:
-            self.tcp_server.shutdown()
-            self.logger.info("TCP Server Shutdown")
+        
+        if self.server_running.get() == "Running":
+            self.server_running.set("Shutting down")
+            self.logger.info("Stopping Server...")
+            self.server.stop_server()
+            del self.server
+            self.server_running.set("Stopped")
+        else:
+            self.logger.debug("Server not Running.")
 
-    def __start_server(self):
-        if self.controller_thread.is_alive() == False:
-            self.__start_controller_server_thread()
-        if (self.udp_osc_server_thread.is_alive() == False) and (self.tcp_osc_server_thread.is_alive() == False):
-            self.__start_osc_server_threads()
-        if self.tcp_server_thread.is_alive() == False:
-            self.__start_tcp_server_thread()
+        
 
-server = Main_Server()
+server_gui = Server_GUI()

@@ -2,7 +2,7 @@ import customtkinter as ctk
 
 #Tkinter Window Attributes
 global window_title 
-window_title = "OATIS"
+window_title = "OATIS Configuration Tool"
 
 global screen_info
 screen_info = {}
@@ -10,9 +10,7 @@ screen_info = {}
 global fullscreen_state
 fullscreen_state = True
 
-
 #Fonts
-
 default_font ='Arial'
 default_size = 20
 
