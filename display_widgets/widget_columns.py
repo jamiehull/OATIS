@@ -1,5 +1,21 @@
 #DB Columns
 widget_columns_dict = {
+
+    "indicator":[
+        "display_instance_id",
+        "display_surface_id",
+        "indicator_label",
+        "on_colour",
+        "flash_enable",
+        "input_logic_id"
+    ],
+    "studio_clock":[
+        "display_instance_id",
+        "display_surface_id",
+        "timezone",
+        "timezone_label_enable",
+        "legend_colour"
+    ],
     "analogue_clock":[
         "display_instance_id",
         "display_surface_id",
@@ -12,20 +28,29 @@ widget_columns_dict = {
         "seconds_hand_colour",
         "smooth_tick"
         ],
-    "studio_clock":[
+    "digital_clock":[
         "display_instance_id",
         "display_surface_id",
         "timezone",
         "timezone_label_enable",
-        "legend_colour"
+        "time_format",
+        "text_colour"
     ],
-    "indicator":[
+    "static_text":[
         "display_instance_id",
         "display_surface_id",
-        "indicator_label",
-        "on_colour",
-        "flash_enable",
-        "input_logic_id"
+        "label_text",
+        "text_colour"
+    ],
+    "static_image":[
+        "display_instance_id",
+        "display_surface_id",
+        "image_id"
+    ],
+    "stacked_image":[
+        "display_instance_id",
+        "display_surface_id",
+        "image_stack_id"
     ],
     "top_banner":[
         "display_instance_id",

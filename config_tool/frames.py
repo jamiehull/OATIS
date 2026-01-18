@@ -2236,9 +2236,13 @@ class Display_Instances(BaseFrameNew):
             db_id = self.tree.get_in_focus_item_db_id()
 
             #Delete any previous entries
-            self.db.delete_row("analogue_clock", "display_instance_id", db_id)
-            self.db.delete_row("studio_clock", "display_instance_id", db_id)
             self.db.delete_row("indicator", "display_instance_id", db_id)
+            self.db.delete_row("studio_clock", "display_instance_id", db_id)
+            self.db.delete_row("analogue_clock", "display_instance_id", db_id)
+            self.db.delete_row("digital_clock", "display_instance_id", db_id)
+            self.db.delete_row("static_text", "display_instance_id", db_id)
+            self.db.delete_row("static_image", "display_instance_id", db_id)
+            self.db.delete_row("stacked_image", "display_instance_id", db_id)
             self.db.delete_row("top_banner", "display_instance_id", db_id)
 
             #Update the dipslay template database entries
@@ -2258,18 +2262,36 @@ class Display_Instances(BaseFrameNew):
             #Find out what widget the config is for
             widget_string = config_frame.widget_string
 
-            if widget_string == "analogue_clock":
-                self.db.add_analogue_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
-
-            elif widget_string == "studio_clock":
-                self.db.add_studio_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
-
-            elif widget_string == "indicator":
+            if widget_string == "indicator":
                 input_logic_id_name :str = config_frame.config_list.pop(3)
                 input_logic_id = input_logic_id_name.split(":")[0]
                 config_frame.config_list.insert(4, input_logic_id)
                 self.db.add_indicator(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
 
+            elif widget_string == "studio_clock":
+                self.db.add_studio_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "analogue_clock":
+                self.db.add_analogue_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "digital_clock":
+                self.db.add_digital_clock(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "static_text":
+                self.db.add_static_text(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "static_image":
+                image_id_name :str = config_frame.config_list.pop(0)
+                image_id = image_id_name.split(":")[0]
+                config_frame.config_list.insert(1, image_id)
+                self.db.add_static_image(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+
+            elif widget_string == "stacked_image":
+                image_id_name :str = config_frame.config_list.pop(0)
+                image_id = image_id_name.split(":")[0]
+                config_frame.config_list.insert(1, image_id)
+                self.db.add_stacked_image(display_instance_id, config_frame.display_surface_id, config_frame.config_list)
+            
             elif widget_string == "top_banner":
                 image_id_name :str = config_frame.config_list.pop(0)
                 image_id = image_id_name.split(":")[0]
@@ -2315,7 +2337,7 @@ class Display_Instances(BaseFrameNew):
                         input_logic_id_name = f"{input_logic_id}:{input_logic_name}"
                         config_list.insert(4, input_logic_id_name)
 
-                    elif widget_string == "top_banner":
+                    elif (widget_string == "top_banner") or (widget_string == "static_image") or (widget_string == "stacked_image"):
                         image_id = config_list.pop(0)
                         image_name = self.db.get_1column_data("image_name", "images", "image_id", image_id)[0]
                         image_id_name = f"{image_id}:{image_name}"

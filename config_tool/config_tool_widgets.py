@@ -1235,6 +1235,7 @@ class Widget_Selector(ctk.CTkFrame):
                                    font=self.default_font, 
                                    width=290, 
                                    height=290,
+                                   fg_color="black",
                                    command = (lambda current_widget_string = widget_string : self.__btn_cmd(current_widget_string)))
                btn.grid(column=current_column, row=0, sticky="ns", padx=5, pady=5)
 

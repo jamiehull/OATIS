@@ -7,9 +7,13 @@ from database.database_connection import DB
 def get_config_frame(parent, widget_string, database_connection, display_surface_id):
     """Returns a config frame given a widget string."""
     config_frame_dict = {
-        "analogue_clock" : Analogue_Clock_Config(parent, database_connection, display_surface_id, widget_string),
-        "studio_clock" : Studio_Clock_Config(parent, database_connection, display_surface_id, widget_string),
         "indicator" : Indicator_Config(parent, database_connection, display_surface_id, widget_string),
+        "studio_clock" : Studio_Clock_Config(parent, database_connection, display_surface_id, widget_string),
+        "analogue_clock" : Analogue_Clock_Config(parent, database_connection, display_surface_id, widget_string),
+        "digital_clock" : Digital_Clock_Config(parent, database_connection, display_surface_id, widget_string),
+        "static_text" : Static_Text_Config(parent, database_connection, display_surface_id, widget_string),
+        "static_image" : Static_Image_Config(parent, database_connection, display_surface_id, widget_string),
+        "stacked_image" : Stacked_Image_Config(parent, database_connection, display_surface_id, widget_string),
         "top_banner" : Top_Banner_Config(parent, database_connection, display_surface_id, widget_string)
     }
 
@@ -117,56 +121,6 @@ class Config_Base_Frame(CTkFrame):
 
         return data_list
 
-class Analogue_Clock_Config(Config_Base_Frame):
-    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
-        super().__init__(parent, database_connection, display_surface_id, widget_string)
-
-        #Timezone
-        self.timezone = Title_Combobox(self, "Timezone", self.timezones_list, None, 350)
-        self.widget_list.append(self.timezone)
-        #Display Timezone label
-        self.timezone_label = Title_Combobox(self, "Show Timezone label", ["Yes", "No"], None, 350)
-        self.widget_list.append(self.timezone_label)
-        #Clock Face Colour
-        self.clock_face_colour = Title_Colour_Picker(self, "Clock Face Colour")
-        self.widget_list.append(self.clock_face_colour)
-        #Legend Colour
-        self.legend_colour = Title_Colour_Picker(self, "Legend Colour")
-        self.widget_list.append(self.legend_colour)
-        #Hours Hand Colour
-        self.hours_hand_colour = Title_Colour_Picker(self, "Hours Hand Colour")
-        self.widget_list.append(self.hours_hand_colour)
-        #Minutes Hand Colour
-        self.minutes_hand_colour = Title_Colour_Picker(self, "Minutes Hand Colour")
-        self.widget_list.append(self.minutes_hand_colour)
-        #Seconds Hand Colour
-        self.seconds_hand_colour = Title_Colour_Picker(self, "Seconds Hand Colour")
-        self.widget_list.append(self.seconds_hand_colour)
-        #Smooth tick
-        self.smooth_tick = Title_Combobox(self, "Smooth Tick", ["Yes", "No"], None, 350)
-        self.widget_list.append(self.smooth_tick)
-
-        #Add the widgets to the grid
-        self.grid_widgets()
-
-class Studio_Clock_Config(Config_Base_Frame):
-    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
-        super().__init__(parent, database_connection, display_surface_id, widget_string
-                         )
-
-        #Timezone
-        self.timezone = Title_Combobox(self, "Timezone", self.timezones_list, None, 350)
-        self.widget_list.append(self.timezone)
-        #Display Timezone label
-        self.timezone_label = Title_Combobox(self, "Show Timezone label", ["Yes", "No"], None, 350)
-        self.widget_list.append(self.timezone_label)
-        #Legend Colour
-        self.legend_colour = Title_Colour_Picker(self, "Legend Colour")
-        self.widget_list.append(self.legend_colour)
-
-        #Add the widgets to the grid
-        self.grid_widgets()
-
 class Indicator_Config(Config_Base_Frame):
     def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
         super().__init__(parent, database_connection, display_surface_id, widget_string)
@@ -201,6 +155,142 @@ class Indicator_Config(Config_Base_Frame):
             values_list.append(input_logic_id_name)
 
         self.input_logic.set_values(values_list)
+
+class Studio_Clock_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string
+                         )
+
+        #Timezone
+        self.timezone = Title_Combobox(self, "Timezone", self.timezones_list, None, 350)
+        self.widget_list.append(self.timezone)
+        #Display Timezone label
+        self.timezone_label = Title_Combobox(self, "Show Timezone label", ["Yes", "No"], None, 350)
+        self.widget_list.append(self.timezone_label)
+        #Legend Colour
+        self.legend_colour = Title_Colour_Picker(self, "Legend Colour")
+        self.widget_list.append(self.legend_colour)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+class Analogue_Clock_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string)
+
+        #Timezone
+        self.timezone = Title_Combobox(self, "Timezone", self.timezones_list, None, 350)
+        self.widget_list.append(self.timezone)
+        #Display Timezone label
+        self.timezone_label = Title_Combobox(self, "Show Timezone label", ["Yes", "No"], None, 350)
+        self.widget_list.append(self.timezone_label)
+        #Clock Face Colour
+        self.clock_face_colour = Title_Colour_Picker(self, "Clock Face Colour")
+        self.widget_list.append(self.clock_face_colour)
+        #Legend Colour
+        self.legend_colour = Title_Colour_Picker(self, "Legend Colour")
+        self.widget_list.append(self.legend_colour)
+        #Hours Hand Colour
+        self.hours_hand_colour = Title_Colour_Picker(self, "Hours Hand Colour")
+        self.widget_list.append(self.hours_hand_colour)
+        #Minutes Hand Colour
+        self.minutes_hand_colour = Title_Colour_Picker(self, "Minutes Hand Colour")
+        self.widget_list.append(self.minutes_hand_colour)
+        #Seconds Hand Colour
+        self.seconds_hand_colour = Title_Colour_Picker(self, "Seconds Hand Colour")
+        self.widget_list.append(self.seconds_hand_colour)
+        #Smooth tick
+        self.smooth_tick = Title_Combobox(self, "Smooth Tick", ["Yes", "No"], None, 350)
+        self.widget_list.append(self.smooth_tick)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+class Digital_Clock_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string)
+
+        #Timezone
+        self.timezone = Title_Combobox(self, "Timezone", self.timezones_list, None, 350)
+        self.widget_list.append(self.timezone)
+        #Display Timezone label
+        self.timezone_label = Title_Combobox(self, "Show Timezone label", ["Yes", "No"], None, 350)
+        self.widget_list.append(self.timezone_label)
+        #Time Format
+        self.time_format = Title_Combobox(self, "Time Format", ["24 Hour", "12 Hour"], None, 350)
+        self.widget_list.append(self.time_format)
+        #Text Colour
+        self.legend_colour = Title_Colour_Picker(self, "Text Colour")
+        self.widget_list.append(self.legend_colour)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+class Static_Text_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string)
+
+        #Label Text
+        self.label_text = Title_Entry(self, "Label Text:", 350)
+        self.widget_list.append(self.label_text)
+        #Text Colour
+        self.text_colour = Title_Colour_Picker(self, "Text Colour")
+        self.widget_list.append(self.text_colour)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+class Static_Image_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string)
+
+        #Image ID
+        self.image = Title_Combobox(self, "Image:", [], None, 350)
+        self.widget_list.append(self.image)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+        self.set_on_raise_callback(self.update_image_combobox_values)
+
+    def update_image_combobox_values(self):
+        values_list = []
+
+        rows = self.db.get_2column_data("image_id", "image_name", "images")
+
+        for row in rows:
+            image_id = row[0]
+            image_name = row[1]
+            image_id_name = f"{image_id}:{image_name}"
+            values_list.append(image_id_name)
+
+        self.image.set_values(values_list)
+
+class Stacked_Image_Config(Config_Base_Frame):
+    def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
+        super().__init__(parent, database_connection, display_surface_id, widget_string)
+
+        #Image Stack ID
+        self.image_stack = Title_Combobox(self, "Image Stack:", [], None, 350)
+        self.widget_list.append(self.image_stack)
+
+        #Add the widgets to the grid
+        self.grid_widgets()
+
+        self.set_on_raise_callback(self.update_logo_combobox_values)
+
+    def update_logo_combobox_values(self):
+        values_list = []
+
+        rows = self.db.get_2column_data("image_id", "image_name", "images")
+
+        for row in rows:
+            image_id = row[0]
+            image_name = row[1]
+            image_id_name = f"{image_id}:{image_name}"
+            values_list.append(image_id_name)
+
+        self.image_stack.set_values(values_list)
 
 class Top_Banner_Config(Config_Base_Frame):
     def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):

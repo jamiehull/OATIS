@@ -1,6 +1,10 @@
 widget_strings_list = [
-    "analogue_clock",
-    "studio_clock",
     "indicator",
+    "studio_clock",
+    "analogue_clock",
+    "digital_clock",
+    "static_text",
+    "static_image",
+    "stacked_image",
     "top_banner"
 ]

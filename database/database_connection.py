@@ -38,6 +38,10 @@ class DB:
             "top_banner",
             "studio_clock",
             "analogue_clock",
+            "digital_clock",
+            "static_text",
+            "static_image",
+            "stacked_image",
             "indicator",
             "display_instances"
         ]
@@ -235,13 +239,16 @@ class DB:
                             FOREIGN KEY(output_trigger_id) REFERENCES output_triggers (output_trigger_id)
                             )""")
 
-        #Display Widget Config
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS top_banner 
+        #----------------------------------------------Display Widget Config----------------------------------------------
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS indicator 
                             (display_instance_id INTEGER NOT NULL,
                             display_surface_id INTEGER NOT NULL,
-                            image_id INTEGER NOT NULL,
+                            indicator_label TEXT NOT NULL,
+                            on_colour TEXT NOT NULL,
+                            flash_enable TEXT NOT NULL,
+                            input_logic_id INTEGER NOT NULL,
                             FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
-                            FOREIGN KEY(image_id) REFERENCES images (image_id)
+                            FOREIGN KEY(input_logic_id) REFERENCES input_logics (input_logic_id)
                             )""")
         
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS studio_clock 
@@ -267,16 +274,47 @@ class DB:
                             FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
                             )""")
         
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS indicator 
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS digital_clock 
                             (display_instance_id INTEGER NOT NULL,
                             display_surface_id INTEGER NOT NULL,
-                            indicator_label TEXT NOT NULL,
-                            on_colour TEXT NOT NULL,
-                            flash_enable TEXT NOT NULL,
-                            input_logic_id INTEGER NOT NULL,
+                            timezone TEXT NOT NULL,
+                            timezone_label_enable TEXT NOT NULL,
+                            time_format TEXT NOT NULL,
+                            text_colour TEXT NOT NULL,
                             FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
-                            FOREIGN KEY(input_logic_id) REFERENCES input_logics (input_logic_id)
                             )""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS static_text 
+                            (display_instance_id INTEGER NOT NULL,
+                            display_surface_id INTEGER NOT NULL,
+                            label_text TEXT NOT NULL,
+                            text_colour TEXT NOT NULL,
+                            FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
+                            )""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS static_image 
+                            (display_instance_id INTEGER NOT NULL,
+                            display_surface_id INTEGER NOT NULL,
+                            image_id INTEGER NOT NULL,
+                            FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
+                            )""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS stacked_image 
+                            (display_instance_id INTEGER NOT NULL,
+                            display_surface_id INTEGER NOT NULL,
+                            image_stack_id INTEGER NOT NULL,
+                            FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
+                            )""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS top_banner 
+                            (display_instance_id INTEGER NOT NULL,
+                            display_surface_id INTEGER NOT NULL,
+                            image_id INTEGER NOT NULL,
+                            FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
+                            FOREIGN KEY(image_id) REFERENCES images (image_id)
+                            )""")
+        
+        
         
         #Default database entries for the system to work
         self.add_controller_type("Network", "Network", 0, 0, 0, 0, 0)
@@ -438,6 +476,34 @@ class DB:
                             minutes_hand_colour, 
                             seconds_hand_colour, 
                             smooth_tick) VALUES (?,?,?,?,?,?,?,?,?,?)""", (display_instance_id, display_surface_id, config_list[0], config_list[1], config_list[2], config_list[3], config_list[4], config_list[5], config_list[6], config_list[7]))
+        self.connection.commit()
+
+    def add_digital_clock(self, display_instance_id, display_surface_id, config_list:list):
+        self.cursor.execute(f"""INSERT INTO digital_clock (display_instance_id, 
+                            display_surface_id, 
+                            timezone, 
+                            timezone_label_enable, 
+                            time_format,
+                            text_colour) VALUES (?,?,?,?,?,?)""", (display_instance_id, display_surface_id, config_list[0], config_list[1], config_list[2], config_list[3]))
+        self.connection.commit()
+
+    def add_static_text(self, display_instance_id, display_surface_id, config_list:list):
+        self.cursor.execute(f"""INSERT INTO static_text (display_instance_id, 
+                            display_surface_id, 
+                            label_text, 
+                            text_colour) VALUES (?,?,?,?)""", (display_instance_id, display_surface_id, config_list[0], config_list[1]))
+        self.connection.commit()
+
+    def add_static_image(self, display_instance_id, display_surface_id, config_list:list):
+        self.cursor.execute(f"""INSERT INTO static_image (display_instance_id, 
+                            display_surface_id, 
+                            image_id) VALUES (?,?,?)""", (display_instance_id, display_surface_id, config_list[0]))
+        self.connection.commit()
+
+    def add_stacked_image(self, display_instance_id, display_surface_id, config_list:list):
+        self.cursor.execute(f"""INSERT INTO stacked_image (display_instance_id, 
+                            display_surface_id, 
+                            image_stack_id) VALUES (?,?,?)""", (display_instance_id, display_surface_id, config_list[0]))
         self.connection.commit()
 
     def add_indicator(self, display_instance_id, display_surface_id, config_list:list):
