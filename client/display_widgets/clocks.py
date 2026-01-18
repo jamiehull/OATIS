@@ -589,6 +589,198 @@ class Studio_Clock(Clock):
         self.display_surface.blit(text_hr_min, text_rect_hr_min)
         self.display_surface.blit(text_sec, text_rect_sec)
 
+class Digital_Clock(Clock):
+    def __init__(self, parent_surface, widget_config_dict:dict):
+        super().__init__(widget_config_dict)
+
+        #Store reference to the surface
+        self.display_surface = parent_surface
+
+        #Config
+        self.time_format = widget_config_dict["time_format"]
+        self.text_colour = hex_to_rgb(widget_config_dict["text_colour"])
+
+        #Display Colours
+        self.bg_colour = (0,0,0) #Black
+
+        #Get the resolution of the surface
+        self.display_width = self.display_surface.get_width()
+        self.display_height = self.display_surface.get_height()
+        print(f"Digital Clock Display Area:{self.display_width},{self.display_height}")
+
+        #Find the centre of the display
+        self.horizontal_center = self.display_width / 2
+        self.vertical_center = self.display_height / 2
+
+        #Work out which is the smallest dimension
+        if self.display_width <= self.display_height:
+            self.smallest_dimension = self.display_width
+        else:
+            self.smallest_dimension = self.display_height
+
+        #Alarm indicator config
+        self.alarm_indicator_radius = int(self.smallest_dimension*0.025)
+        self.alarm_indicator_x_pos = 0
+        self.alarm_indicator_y_pos = 0
+        
+        #Digital Clock Font - Overriden if calculate_digital_clock_text_scaling used
+        self.digital_clock_text_size = int(self.display_height * 0.8)
+        self.digital_clock_font = pygame.font.SysFont('arial', self.digital_clock_text_size)
+        self.digital_clock_text_height = 0
+
+        if self.timezone_label_enable == "Yes":
+            self.digital_clock_text_max_height = self.display_height * 0.7
+        else:
+            self.digital_clock_text_max_height = self.display_height
+
+        #Calculate Digital Clock Font Size to fit display surface
+        self.calculate_digital_clock_text_scaling()
+        
+        #Timezone label Font - Overriden if calculate_timezone_label_scaling used
+        self.timezone_label_text_size = int(self.digital_clock_text_size * 0.7)
+        self.timezone_font = pygame.font.SysFont('arial', self.timezone_label_text_size)
+        self.timezone_label_height = 0
+        self.timezone_text_max_height = self.digital_clock_text_height * 0.3
+
+        #Calculate Timezone Label Font Size to fit display surface
+        self.calculate_timezone_label_scaling()
+
+        #Calculate alarm indicator position
+        self.calculate_alarm_indicator_position()
+        
+        #Draw the clock
+        self.add_function_to_render(self.draw_bg)
+        self.add_function_to_render(self.update_digital_time)
+        self.add_function_to_render(self.draw_alarm_indicator)
+        self.add_function_to_render(self.alarm_indicator_flash)
+ 
+#----------------------------------Module Specific Code---------------------------------
+
+    def draw_bg(self):
+        #Fill the screen with a color to wipe away anything from last frame
+        self.display_surface.fill(self.bg_colour)
+
+    def draw_alarm_indicator(self):
+        pygame.gfxdraw.aacircle(self.display_surface, int(self.alarm_indicator_x_pos), int(self.alarm_indicator_y_pos), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
+        pygame.gfxdraw.filled_circle(self.display_surface, int(self.alarm_indicator_x_pos), int(self.alarm_indicator_y_pos), self.alarm_indicator_radius, self.alarm_indicator_current_colour)
+
+    def calculate_digital_clock_text_scaling(self):
+        """Calculates the text size to fit the clock onto the display surface."""
+        clock_fits_display = False
+        digital_clock_text_size = int(self.display_height * 0.8)
+        
+        #Get the current time, adjusting for the selected timezone
+        offset_time = datetime.now(self.timezone_obj)
+
+        if self.time_format == "24 Hour":
+            offset_time_string_hr_min_sec = offset_time.strftime('%H:%M:%S')
+
+        else:
+            offset_time_string_hr_min_sec = offset_time.strftime('%I:%M:%S %p')
+
+        while clock_fits_display == False:
+            #Digital Clock Font
+            font = pygame.font.SysFont('arial', digital_clock_text_size)
+
+            #Create a text surface object and a rectangular object for the text surface object
+            text_hr_min_sec = font.render(offset_time_string_hr_min_sec, True, self.text_colour, self.bg_colour)
+            text_rect_hr_min_sec = text_hr_min_sec.get_rect()
+            
+            #Get the text width / height
+            text_width = text_rect_hr_min_sec.right - text_rect_hr_min_sec.left
+            text_height = text_rect_hr_min_sec.bottom - text_rect_hr_min_sec.top
+            print(f"Clock Text Width is: {text_width}, Clock Text Height is:{text_height}")
+
+            #If it fits on the display surface
+            if (text_width <= (self.display_width * 0.9)) and (text_height <= self.digital_clock_text_max_height):
+                self.digital_clock_text_size = digital_clock_text_size
+                self.digital_clock_font = pygame.font.SysFont('arial', self.digital_clock_text_size)
+                self.digital_clock_text_height = text_rect_hr_min_sec.bottom - text_rect_hr_min_sec.top
+                clock_fits_display = True
+
+            #If it does not, make it a bit smaller!
+            else:
+                digital_clock_text_size =  int(digital_clock_text_size * 0.9)
+
+    def calculate_timezone_label_scaling(self):
+        """Calculates the text size to fit the timezone label onto the display surface."""
+        timezone_fits_display = False
+        timezone_text_size = int(self.timezone_text_max_height)
+        
+        while timezone_fits_display == False:
+            #Timezone Font
+            font = pygame.font.SysFont('arial', timezone_text_size)
+
+            #Create a text surface object and a rectangular object for the text surface object
+            text_timezone = font.render(self.timezone, True, self.text_colour, self.bg_colour)
+            text_rect_timezone = text_timezone.get_rect()
+            
+            #Get the text width / height
+            text_width = text_rect_timezone.right - text_rect_timezone.left
+            text_height = text_rect_timezone.bottom - text_rect_timezone.top
+            print(f"Timezone Label Text Width is: {text_width}, Timezone Label Text Height is:{text_height}")
+
+            #If it fits on the display surface
+            if (text_width <= (self.display_width * 0.9)) and (text_height <= self.timezone_text_max_height):
+                self.timezone_label_text_size = timezone_text_size
+                self.timezone_font = pygame.font.SysFont('arial', self.timezone_label_text_size)
+                self.timezone_label_height = text_rect_timezone.bottom - text_rect_timezone.top
+                timezone_fits_display = True
+
+            #If it does not, make it a bit smaller!
+            else:
+                timezone_text_size =  int(timezone_text_size * 0.9)
+
+    def calculate_alarm_indicator_position(self):
+        """Works out where to put the alarm indicator."""
+
+        if self.timezone_label_enable == "Yes":
+            self.alarm_indicator_x_pos = self.display_width/2
+            self.alarm_indicator_y_pos = self.digital_clock_text_height * 0.95
+        else:
+            self.alarm_indicator_x_pos = self.display_width/2
+            self.alarm_indicator_y_pos = (self.vertical_center + (self.digital_clock_text_height / 2)) * 0.95
+
+    def update_digital_time(self):
+        """Renders the digital clock with current time."""
+        
+        #Get the current time, adjusting for the selected timezone
+        offset_time = datetime.now(self.timezone_obj)
+    
+        #24 Hour Time
+        if self.time_format == "24 Hour":
+            offset_time_string_hr_min_sec = offset_time.strftime('%H:%M:%S')
+
+        #12 Hour Time
+        else:
+            offset_time_string_hr_min_sec = offset_time.strftime('%I:%M:%S %p')
+
+        #Create a text surface object and a rectangular object for the text surface object
+        text_hr_min_sec = self.digital_clock_font.render(offset_time_string_hr_min_sec, True, self.text_colour, self.bg_colour)
+        text_rect_hr_min_sec = text_hr_min_sec.get_rect()
+
+        if self.timezone_label_enable == "Yes":
+            text_rect_hr_min_sec.center = (self.horizontal_center, self.digital_clock_text_height/2)
+            
+            #Create a text surface object and a rectangular object for the text surface object
+            timezone_label = self.timezone_font.render(self.timezone, True, self.text_colour, self.bg_colour)
+            timezone_label_rect = timezone_label.get_rect()
+
+            #Set the position of the rectangular object.
+            remaining_display_height = (self.display_height - self.digital_clock_text_height)
+            timezone_label_rect.center = (self.horizontal_center, (self.digital_clock_text_height + (0.3 * remaining_display_height)))
+
+            #Copy the text surface object to the display surface object at the center coordinate.
+            self.display_surface.blit(timezone_label, timezone_label_rect)
+
+        else:
+            #Set the center of the rectangular object.
+            text_rect_hr_min_sec.center = (self.horizontal_center, self.vertical_center)
+        
+        #Copy the text surface object to the display surface object at the center coordinate.
+        self.display_surface.blit(text_hr_min_sec, text_rect_hr_min_sec)
+
+
 
 
 

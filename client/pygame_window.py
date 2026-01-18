@@ -312,7 +312,7 @@ class Window:
                 self.add_widget_object_to_surface(widget_string, display_surface, display_section_id, widget_config_dict)
 
                 #If a clock widget add the surface id to the list to allow the alarm to be triggered
-                if widget_string == "analogue_clock" or widget_string == "studio_clock":
+                if widget_string == "analogue_clock" or widget_string == "studio_clock" or widget_string == "digital_clock":
                     self.clock_widget_surfaces_list.append(int(display_section_id))
                 #If an indicator widget add to the indicator list to allow it to be triggered
                 elif widget_string == "indicator":
@@ -351,12 +351,22 @@ class Window:
         """Adds a widget object to a surface and configures it."""
         widget = None
 
-        if widget_string == "analogue_clock":
-            widget = Analogue_Clock(display_surface, widget_config)
+        if widget_string == "indicator":
+            widget = Indicator_Lamp(display_surface, widget_config)
         elif widget_string == "studio_clock":
             widget = Studio_Clock(display_surface, widget_config)
-        elif widget_string == "indicator":
-            widget = Indicator_Lamp(display_surface, widget_config)
+        elif widget_string == "analogue_clock":
+            widget = Analogue_Clock(display_surface, widget_config)
+        elif widget_string == "digital_clock":
+            widget = Digital_Clock(display_surface, widget_config)
+        elif widget_string == "static_text":
+            widget = Analogue_Clock(display_surface, widget_config)
+        elif widget_string == "static_image":
+            widget = Analogue_Clock(display_surface, widget_config)
+        elif widget_string == "stacked_image":
+            widget = Analogue_Clock(display_surface, widget_config)
+        
+        
         elif widget_string == "top_banner":
             widget = Logo_Date_Location_Top_Banner(display_surface, widget_config)
 
