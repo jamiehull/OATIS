@@ -1,4 +1,4 @@
-from client.display_widgets.widget import Widget
+from display_widgets.pygame_widgets.widget import Widget
 import pygame
 from pygame.locals import *
 import os
@@ -21,7 +21,7 @@ class Ticker_Banner(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Ticker banner Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Ticker banner Display Area:{self.display_width},{self.display_height}")
 
         #Work out which is the smallest dimension
         if self.display_width <= self.display_height:
@@ -104,7 +104,7 @@ class Logo_Date_Location_Top_Banner:
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Logo_Date_Location banner Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Logo_Date_Location banner Display Area:{self.display_width},{self.display_height}")
 
         #Work out which is the smallest dimension
         if self.display_width <= self.display_height:

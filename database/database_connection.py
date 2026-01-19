@@ -23,7 +23,6 @@ class DB:
             "controllers",
             "controller_types",
             "pin_modes",
-            "images",
             "display_templates",
             "display_surfaces",
             "message_groups",
@@ -43,7 +42,8 @@ class DB:
             "static_image",
             "stacked_image",
             "indicator",
-            "display_instances"
+            "display_instances",
+            "images"
         ]
 
         #Used for verification, the total number of tables in a valid database that has been correctly initialised
@@ -289,6 +289,8 @@ class DB:
                             display_surface_id INTEGER NOT NULL,
                             label_text TEXT NOT NULL,
                             text_colour TEXT NOT NULL,
+                            text_size_mode TEXT NOT NULL,
+                            text_size TEXT NOT NULL,
                             FOREIGN KEY(display_instance_id) REFERENCES display_instances (display_instance_id)
                             )""")
         
@@ -491,7 +493,9 @@ class DB:
         self.cursor.execute(f"""INSERT INTO static_text (display_instance_id, 
                             display_surface_id, 
                             label_text, 
-                            text_colour) VALUES (?,?,?,?)""", (display_instance_id, display_surface_id, config_list[0], config_list[1]))
+                            text_colour,
+                            text_size_mode,
+                            text_size) VALUES (?,?,?,?,?,?)""", (display_instance_id, display_surface_id, config_list[0], config_list[1], config_list[2], config_list[3]))
         self.connection.commit()
 
     def add_static_image(self, display_instance_id, display_surface_id, config_list:list):

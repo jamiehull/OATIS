@@ -1,1 +1,5 @@
-{"client_ip": "127.0.0.1", "server_ip": "127.0.0.1", "first_run": true}
+{
+    "client_ip": "127.0.0.1",
+    "server_ip": "127.0.0.1",
+    "first_run": false
+}

@@ -1,7 +1,11 @@
+import logging
+
 #Widget Superclass
 class Widget:
     """Base Widget class containing functions common to all Widgets."""
     def __init__(self):
+        #Setup Logging
+        self.logger = logging.getLogger(__name__)
 
         #List of functions to call on render
         self.__render_list = []

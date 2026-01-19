@@ -1,10 +1,10 @@
 import pygame
 from pygame.locals import *
-from client.display_widgets.clocks import *
-from client.display_widgets.top_banners import *
-from client.display_widgets.indicators import *
-from client.display_widgets.text_fields import *
-from client.display_widgets.fullscreen_slates import *
+from display_widgets.pygame_widgets.clocks import *
+from display_widgets.pygame_widgets.top_banners import *
+from display_widgets.pygame_widgets.indicators import *
+from display_widgets.pygame_widgets.text_fields import *
+from display_widgets.pygame_widgets.fullscreen_slates import *
 from dataclasses import dataclass
 import logging
 from modules.osc import *
@@ -63,8 +63,8 @@ class Window:
 
         #Get the resolution of the display and store a reference
         self.screen_resolution = pygame.display.get_desktop_sizes()[0]
-        self.display_width = self.screen_resolution[0]
-        self.display_height = self.screen_resolution[1]
+        self.display_width = 1280#self.screen_resolution[0]
+        self.display_height = 720#self.screen_resolution[1]
         print(f"Display Resolution:{self.screen_resolution}")
 
         #List of widgets to render on the surfaces
@@ -76,8 +76,8 @@ class Window:
         #Lock to make accessing the dict from multiple threads safe
         self.blit_dict_lock = threading.Lock()
 
-        #Create the Main Display Window Surface 
-        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.SCALED | pygame.FULLSCREEN | pygame.NOFRAME)
+        #Create the Main Display Window Surface | pygame.FULLSCREEN | pygame.NOFRAME
+        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.SCALED )
 
         #Find the centre of the display
         self.horizontal_center = self.display_surface.get_width() / 2
@@ -347,6 +347,7 @@ class Window:
         self.top_banner_ticker = Ticker_Banner(self.surface_top_banner)
         self.__add_widget_to_render(-2, self.top_banner_ticker)
 
+    #Add new widgets here!
     def add_widget_object_to_surface(self, widget_string, display_surface, display_surface_id, widget_config:dict):
         """Adds a widget object to a surface and configures it."""
         widget = None
@@ -360,7 +361,7 @@ class Window:
         elif widget_string == "digital_clock":
             widget = Digital_Clock(display_surface, widget_config)
         elif widget_string == "static_text":
-            widget = Analogue_Clock(display_surface, widget_config)
+            widget = Static_Text(display_surface, widget_config)
         elif widget_string == "static_image":
             widget = Analogue_Clock(display_surface, widget_config)
         elif widget_string == "stacked_image":

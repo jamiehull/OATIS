@@ -40,7 +40,9 @@ widget_columns_dict = {
         "display_instance_id",
         "display_surface_id",
         "label_text",
-        "text_colour"
+        "text_colour",
+        "text_size_mode",
+        "text_size"
     ],
     "static_image":[
         "display_instance_id",

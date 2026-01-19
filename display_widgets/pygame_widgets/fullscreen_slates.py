@@ -1,4 +1,4 @@
-from client.display_widgets.widget import Widget
+from display_widgets.pygame_widgets.widget import Widget
 import pygame
 from pygame.locals import *
 import os
@@ -19,7 +19,7 @@ class Logo_Slate(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Fullscreen Slate Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Fullscreen Slate Display Area:{self.display_width},{self.display_height}")
 
         #Scale variables
         self.title_scale_factor = 6
@@ -120,7 +120,7 @@ class Identify_Slate(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Fullscreen Slate Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Fullscreen Slate Display Area:{self.display_width},{self.display_height}")
 
         #Scale variables
         self.title_scale_factor = 6

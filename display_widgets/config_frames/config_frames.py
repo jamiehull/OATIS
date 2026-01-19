@@ -234,11 +234,27 @@ class Static_Text_Config(Config_Base_Frame):
         self.label_text = Title_Entry(self, "Label Text:", 350)
         self.widget_list.append(self.label_text)
         #Text Colour
-        self.text_colour = Title_Colour_Picker(self, "Text Colour")
+        self.text_colour = Title_Colour_Picker(self, "Text Colour:")
         self.widget_list.append(self.text_colour)
+        #Text Size Mode
+        self.text_size_mode = Title_Combobox(self, "Text Size Mode:", ["Auto", "Manual"], self.text_size_mode_callback, 350)
+        self.widget_list.append(self.text_size_mode)
+        #Text Size
+        self.text_size = Title_Entry(self, "Text Size:", 350)
+        self.widget_list.append(self.text_size)
 
         #Add the widgets to the grid
         self.grid_widgets()
+
+    def text_size_mode_callback(self, value):
+        if value == "Auto":
+            self.text_size.disable_entry()
+            self.text_size.set_value("Auto")
+        else:
+            self.text_size.enable_entry()
+            self.text_size.set_value("")
+
+
 
 class Static_Image_Config(Config_Base_Frame):
     def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):

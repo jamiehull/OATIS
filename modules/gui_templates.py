@@ -36,14 +36,20 @@ class Title_Entry(ctk.CTkFrame):
           title = ctk.CTkLabel(master=self, text=self.title, font=self.default_font, anchor="w")
           title.grid(column=0, row=0, sticky="ew", padx=10, pady=10)
 
-          input_widget = ctk.CTkEntry(master=self, textvariable=self.entry_value, font=self.default_font, justify="left", width=entry_width)
-          input_widget.grid(column=1, row=0, sticky="ew", padx=10, pady=10)
+          self.input_widget = ctk.CTkEntry(master=self, textvariable=self.entry_value, font=self.default_font, justify="left", width=entry_width)
+          self.input_widget.grid(column=1, row=0, sticky="ew", padx=10, pady=10)
 
      def get_value(self):
           return self.entry_value.get()
      
      def set_value(self, value:str):
           self.entry_value.set(value)
+
+     def disable_entry(self):
+          self.input_widget.configure(state="disabled")
+
+     def enable_entry(self):
+          self.input_widget.configure(state="normal")
      
 class Title_Combobox(ctk.CTkFrame):
      def __init__(self, parent, title, values_list:list, callback=None, combobox_width=140):

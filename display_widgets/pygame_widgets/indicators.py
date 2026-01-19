@@ -1,6 +1,6 @@
 import pygame
 from pygame.locals import *
-from client.display_widgets.widget import Widget
+from display_widgets.pygame_widgets.widget import Widget
 
 class Indicator_Lamps_Vertical(Widget):
     """Creates a single column of indicator lamps."""
@@ -26,7 +26,7 @@ class Indicator_Lamps_Vertical(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Indicators Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Indicators Display Area:{self.display_width},{self.display_height}")
 
         #Scale variables
         self.vertical_pad = self.display_height*0.03/(number_of_indicators*0.1)
@@ -69,7 +69,7 @@ class Indicator_Lamps_Vertical(Widget):
             label_text = font.render(text, True, self.text_colour)
             label_text_width = label_text.get_width()
             if label_text_width >= (int(self.indicator_width) - self.indicator_text_x_pad):
-                print(f"Label Text width:{label_text_width}, indicator width:{self.indicator_width}")
+                self.logger.debug(f"Label Text width:{label_text_width}, indicator width:{self.indicator_width}")
                 text_size -= 1
             else:
                 break
@@ -143,25 +143,25 @@ class Indicator_Lamps_Vertical(Widget):
                 self.flashing_list.remove(indicator_index)
                 #Set colour back to off colour
                 self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
-                print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+                self.logger.debug(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
 
     def __indicator_on(self, indicator_index_list:list):
         """Turns an indicator on."""
         for indicator_index in indicator_index_list:
 
-            print(f"Turning indicator {indicator_index} on")
+            self.logger.debug(f"Turning indicator {indicator_index} on")
 
             self.indicator_current_colour_list[indicator_index] = self.indicator_on_rgb_colour_list[indicator_index]
-            print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+            self.logger.debug(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
 
     def __indicator_off(self, indicator_index_list:list):
         """Turns an indicator off."""
         for indicator_index in indicator_index_list:
 
-            print(f"Turning indicator {indicator_index} off")
+            self.logger.debug(f"Turning indicator {indicator_index} off")
             
             self.indicator_current_colour_list[indicator_index] = self.indicator_off_colour
-            print(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
+            self.logger.debug(f"Current colour:{self.indicator_current_colour_list[indicator_index]}")
 
     def trigger_indicator_on(self, indicator_index_list:list):
         """Triggers an indicator on, triggers either a steady on or flash depending on display template config."""
@@ -180,12 +180,6 @@ class Indicator_Lamps_Vertical(Widget):
                     self.__indicator_flash_disable(indicator_index_list)
                 else:
                     self.__indicator_off(indicator_index_list)
-
-
-
-import pygame
-from pygame.locals import *
-from client.display_widgets.widget import Widget
 
 class Indicator_Lamp(Widget):
     """Creates a single indicator lamp."""
@@ -210,7 +204,7 @@ class Indicator_Lamp(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Indicator Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Indicator Display Area:{self.display_width},{self.display_height}")
 
         #Scale variables
         self.vertical_pad = self.display_height*0.15
@@ -243,7 +237,7 @@ class Indicator_Lamp(Widget):
             label_text = font.render(text, True, self.text_colour)
             label_text_width = label_text.get_width()
             if label_text_width >= (int(self.indicator_width) - self.indicator_text_x_pad):
-                print(f"Label Text width:{label_text_width}, indicator width:{self.indicator_width}")
+                self.logger.debug(f"Label Text width:{label_text_width}, indicator width:{self.indicator_width}")
                 text_size -= 1
             else:
                 break
@@ -305,12 +299,12 @@ class Indicator_Lamp(Widget):
 
     def __indicator_on(self):
         """Turns an indicator on."""
-        print(f"Turning indicator on")
+        self.logger.debug(f"Turning indicator on")
         self.indicator_current_colour = self.indicator_on_colour
 
     def __indicator_off(self):
         """Turns an indicator off."""
-        print(f"Turning indicator off")
+        self.logger.debug(f"Turning indicator off")
         self.indicator_current_colour = self.indicator_off_colour
 
     def trigger_indicator_on(self):

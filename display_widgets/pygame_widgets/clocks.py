@@ -7,7 +7,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import datetime
 import pygame.gfxdraw
-from client.display_widgets.widget import Widget
+from display_widgets.pygame_widgets.widget import Widget
 from modules.common import hex_to_rgb
 
 class Clock(Widget):
@@ -72,16 +72,16 @@ class Clock(Widget):
 
         #Determine whether positive or negative
         if timezone_sting_num_only[0] == "+":
-            print("UTC Offset is positive")
+            self.logger.debug("UTC Offset is positive")
             timezone_sting_num_only_positive = timezone_sting_num_only.strip("+")
             offset = int(timezone_sting_num_only_positive)
         
         elif timezone_sting_num_only[0] == "-":
-            print("UTC Offset is negative")
+            self.logger.debug("UTC Offset is negative")
             offset = int(timezone_sting_num_only)
 
         else:
-            print("Incorrect timezone string provided. Returning an offset of 0.")
+            self.logger.debug("Incorrect timezone string provided. Returning an offset of 0.")
 
         return offset
         
@@ -111,7 +111,7 @@ class Analogue_Clock(Clock):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Traditional Clock Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Traditional Clock Display Area:{self.display_width},{self.display_height}")
 
         #Work out which is the smallest dimension
         if self.display_width <= self.display_height:
@@ -182,7 +182,7 @@ class Analogue_Clock(Clock):
     
     def find_hypotenuse_pythag(self, a, b):
         c = math.sqrt(a*a + b*b)
-        #print(f"Hypotenuse: {c}")
+        #self.logger.debug(f"Hypotenuse: {c}")
         return c
 
     def find_rectangle_points(self, angle_of_orientation, rectangle_height, rectangle_width, distance_from_center):
@@ -196,23 +196,23 @@ class Analogue_Clock(Clock):
         #Find each point of the rectangle from the center of the rectangle
         distance = self.find_hypotenuse_pythag(rectangle_height/2, rectangle_width/2)
         angle_to_point_1 = angle_of_orientation_rads + math.atan((rectangle_width/2)/(rectangle_height/2))
-        #print(f"Angle 1: {angle_to_point_1}")
+        #self.logger.debug(f"Angle 1: {angle_to_point_1}")
         x1, y1 = self.find_coords_from_point(angle_to_point_1, distance, center_x, center_y)
 
         angle_to_point_2 = angle_of_orientation_rads - math.atan((rectangle_width/2)/(rectangle_height/2))
-        #print(f"Angle 2: {angle_to_point_2}")
+        #self.logger.debug(f"Angle 2: {angle_to_point_2}")
         x2, y2 = self.find_coords_from_point(angle_to_point_2, distance, center_x, center_y)
 
         angle_to_point_3 = angle_of_orientation_rads + math.pi + math.atan((rectangle_width/2)/(rectangle_height/2))
-        #print(f"Angle 3: {angle_to_point_3}")
+        #self.logger.debug(f"Angle 3: {angle_to_point_3}")
         x3, y3 = self.find_coords_from_point(angle_to_point_3, distance, center_x, center_y)
 
         angle_to_point_4 = angle_of_orientation_rads + math.pi - math.atan((rectangle_width/2)/(rectangle_height/2))
-        #print(f"Angle 4 : {angle_to_point_4}")
+        #self.logger.debug(f"Angle 4 : {angle_to_point_4}")
         x4, y4 = self.find_coords_from_point(angle_to_point_4, distance, center_x, center_y)
 
         points = [(x1,y1),(x2,y2),(x3,y3),(x4,y4)]
-        #print(f"Points: {points}")
+        #self.logger.debug(f"Points: {points}")
 
         return points
 
@@ -253,7 +253,7 @@ class Analogue_Clock(Clock):
             #Get the text height
             text_height = label_rect.bottom - label_rect.top
             text_width = label_rect.right - label_rect.left
-            #print(F"Label Width:{text_width}, Label height:{text_height}")
+            #self.logger.debug(F"Label Width:{text_width}, Label height:{text_height}")
 
             #Find the largest dimension
             if text_height > text_width:
@@ -287,7 +287,7 @@ class Analogue_Clock(Clock):
             #Get the text height
             text_height = label_rect.bottom - label_rect.top
             text_width = label_rect.right - label_rect.left
-            #print(F"Label Width:{text_width}, Label height:{text_height}")
+            #self.logger.debug(F"Label Width:{text_width}, Label height:{text_height}")
 
             #Find the largest dimension
             if text_height > text_width:
@@ -432,7 +432,7 @@ class Studio_Clock(Clock):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Studio Clock Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Studio Clock Display Area:{self.display_width},{self.display_height}")
 
         #Work out which is the smallest dimension
         if self.display_width <= self.display_height:
@@ -513,7 +513,7 @@ class Studio_Clock(Clock):
             #Get the text height
             text_height = label_rect.bottom - label_rect.top
             text_width = label_rect.right - label_rect.left
-            #print(F"Label Width:{text_width}, Label height:{text_height}")
+            #self.logger.debug(F"Label Width:{text_width}, Label height:{text_height}")
 
             #Find the largest dimension
             if text_height > text_width:
@@ -606,7 +606,7 @@ class Digital_Clock(Clock):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Digital Clock Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Digital Clock Display Area:{self.display_width},{self.display_height}")
 
         #Find the centre of the display
         self.horizontal_center = self.display_width / 2
@@ -689,7 +689,7 @@ class Digital_Clock(Clock):
             #Get the text width / height
             text_width = text_rect_hr_min_sec.right - text_rect_hr_min_sec.left
             text_height = text_rect_hr_min_sec.bottom - text_rect_hr_min_sec.top
-            print(f"Clock Text Width is: {text_width}, Clock Text Height is:{text_height}")
+            self.logger.debug(f"Clock Text Width is: {text_width}, Clock Text Height is:{text_height}")
 
             #If it fits on the display surface
             if (text_width <= (self.display_width * 0.9)) and (text_height <= self.digital_clock_text_max_height):
@@ -718,7 +718,7 @@ class Digital_Clock(Clock):
             #Get the text width / height
             text_width = text_rect_timezone.right - text_rect_timezone.left
             text_height = text_rect_timezone.bottom - text_rect_timezone.top
-            print(f"Timezone Label Text Width is: {text_width}, Timezone Label Text Height is:{text_height}")
+            self.logger.debug(f"Timezone Label Text Width is: {text_width}, Timezone Label Text Height is:{text_height}")
 
             #If it fits on the display surface
             if (text_width <= (self.display_width * 0.9)) and (text_height <= self.timezone_text_max_height):
