@@ -5,6 +5,8 @@ from display_widgets.pygame_widgets.top_banners import *
 from display_widgets.pygame_widgets.indicators import *
 from display_widgets.pygame_widgets.text_fields import *
 from display_widgets.pygame_widgets.fullscreen_slates import *
+from display_widgets.pygame_widgets.images import *
+from display_widgets.image_widgets import image_widget_strings_list
 from dataclasses import dataclass
 import logging
 from modules.osc import *
@@ -235,7 +237,6 @@ class Window:
             self.display_surfaces = default_template_dict["display_surfaces"]
             self.build_layout_custom(self.layout_matrix, self.display_surfaces)
             
-
     def build_layout_custom(self, layout_matrix:int, display_surfaces_dict:dict):
         """Builds a display layout from a layout matrix and display surface config."""
 
@@ -314,6 +315,7 @@ class Window:
                 #If a clock widget add the surface id to the list to allow the alarm to be triggered
                 if widget_string == "analogue_clock" or widget_string == "studio_clock" or widget_string == "digital_clock":
                     self.clock_widget_surfaces_list.append(int(display_section_id))
+
                 #If an indicator widget add to the indicator list to allow it to be triggered
                 elif widget_string == "indicator":
                     self.indicator_surfaces_list.append(int(display_section_id))
@@ -363,7 +365,7 @@ class Window:
         elif widget_string == "static_text":
             widget = Static_Text(display_surface, widget_config)
         elif widget_string == "static_image":
-            widget = Analogue_Clock(display_surface, widget_config)
+            widget = Static_Image(display_surface, widget_config)
         elif widget_string == "stacked_image":
             widget = Analogue_Clock(display_surface, widget_config)
         
@@ -608,16 +610,21 @@ class Window:
                     self.logger.debug("Commiting Recieved Display Template to file")
                     self.write_display_template_to_file(arguments)
 
-                    #Retrieve any image_id's from the display tempalte and get these images from the server
+                    #Retrieve any image_id's from the display template and get these images from the server
                     image_id_list = []
                     display_surface_config_dict = arguments["display_surfaces"]
+
                     for key in display_surface_config_dict:
                         display_surface_config = display_surface_config_dict.get(key)
                         self.logger.debug(f"Display Surface Config Dict: {display_surface_config}")
-                        if display_surface_config["widget_string"] == "top_banner":
-                            widget_config = display_surface_config["widget_config"]
+                        widget_string = display_surface_config["widget_string"]
+
+                        if (widget_string in image_widget_strings_list):
+                            widget_config : dict  = display_surface_config["widget_config"]
                             image_id = widget_config.get("image_id")
-                            image_id_list.append(image_id)
+                            
+                            if (image_id not in image_id_list):
+                                image_id_list.append(image_id)
 
                     self.__update_image_files(image_id_list)
             else:
