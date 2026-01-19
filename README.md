@@ -1,4 +1,4 @@
-# OATIS V2 - On Air Tally Indicator System - IN TESTING
+# OATIS V2 - On Air Tally Indicator System - IN DEVELOPMENT
 
 <img width="1000" height="300" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
@@ -10,7 +10,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
 
 ## Features
 ### Physical and Network triggers:
-- Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 54 inputs / outputs.
+- Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 52 inputs / outputs.
 - Multiple Arduinos can be connected to the server, giving scope for increased I/O if needed.
 - Support for network input and output triggers using the OSC Protocol, both UDP and TCP.
 - Inputs can be linked to display indicator lamps to show the state of the input trigger.
@@ -21,7 +21,16 @@ Designed to operate in a server-client model, multiple displays can be centrally
   
 ### Customizable displays:
 - Display Builder allows custom displays to be built and applied to multiple clients.
-- Currently available display widgets: Studio Clock, Analogue Clock, Indicator Lamp, Date-Logo-Location Top-Banner (more to be added in the future, suggestions are welcomed!)
+- Currently available display widgets:
+  - Studio Clock
+  - Analogue Clock
+  - Digital Clock
+  - Indicator Lamp
+  - Static Text
+  - Static Image
+  - Stacked Image (Changable via an OSC trigger) - Currently in Development
+  - Date-Logo-Location Top-Banner
+  - More to be added in the future, suggestions are welcomed!
 - Multiple clocks can be displayed at once with the option to change the timezone depending on location.
 - Sync your client device via NTP for accurate time.
 - Add your Own Logo to client displays.
