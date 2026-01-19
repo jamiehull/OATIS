@@ -1,6 +1,7 @@
 import pygame
 from pygame.locals import *
-from client.display_widgets.widget import Widget
+from display_widgets.pygame_widgets.widget import Widget
+from modules.pygame_functions import make_resized_text_object
 
 class Title_Data(Widget):
     """Creates a single column containing a title and a data field with two text rows below."""
@@ -25,7 +26,7 @@ class Title_Data(Widget):
         #Get the resolution of the surface
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
-        print(f"Text Field Display Area:{self.display_width},{self.display_height}")
+        self.logger.debug(f"Text Field Display Area:{self.display_width},{self.display_height}")
 
         #Scale variables
         self.vertical_pad = self.display_height*0.03
@@ -126,3 +127,77 @@ class Title_Data(Widget):
         self.field_data_ln2 = ""
         #Re-calculate text sizes
         self.__calculate_text_sizes()
+
+class Static_Text(Widget):
+    """Creates a static text widget."""
+    def __init__(self, parent_surface, widget_config_dict:dict):
+        super().__init__()
+
+        #Widget Config
+        self.logger.info("Extracting Static Text Widget Config from widget_config_dict")
+        self.label_text = widget_config_dict["label_text"]
+        self.text_colour = widget_config_dict["text_colour"]
+        self.text_size_mode = widget_config_dict["text_size_mode"]
+        self.user_text_size = widget_config_dict["text_size"]
+        self.widget_xpad = 50
+        self.widget_ypad = 50
+        self.logger.info("Done")
+
+        #Store reference to the surface
+        self.display_surface :pygame.Surface = parent_surface
+
+        #Display Colours
+        self.bg_colour = (0,0,0) #Black
+
+        #Get the resolution of the surface
+        self.logger.info("Getting resolution of surface")
+        self.display_width = self.display_surface.get_width()
+        self.display_height = self.display_surface.get_height()
+        self.logger.debug(f"Static Text Display Surface Resolution:{self.display_width},{self.display_height}")
+
+        #If user has set text size to auto, we set an initial text size
+        self.logger.debug(f"Text size mode set to {self.text_size_mode}")
+        if self.text_size_mode == "Auto":
+            self.text_size = self.display_height
+
+        #If the user has set a manual text size value, convert this to an int
+        else:
+            try:
+                self.text_size = int(self.user_text_size)
+
+            except Exception:
+                self.logger.warning("Invalid manual text size provided, defaulting to autosize.")
+                self.text_size = self.display_height
+                self.text_size_mode = "Auto"
+
+        self.logger.info("Building Text Widget")
+        self.__build_text_object()
+
+        self.logger.info("Adding draw_text function to render call.")
+        self.add_function_to_render(self.draw_text)
+
+    def __build_text_object(self):
+        """Creates a pygame text object based on the text size / mode set and sets it's position."""
+    
+        #If user has chosen autofit
+        if self.text_size_mode == "Auto":
+            self.label_text = make_resized_text_object(self.label_text, self.text_colour, self.text_size, self.display_width, self.display_height, self.widget_xpad, self.widget_ypad)
+
+        #If user has specified a custom size
+        else:
+            font = pygame.font.SysFont('arial', self.text_size)
+            self.label_text = font.render(self.label_text, True, self.text_colour)
+
+        #Get the text rectangle
+        self.label_text_rect = self.label_text.get_rect()
+
+        #Set the position of the rectangular object.
+        self.label_text_rect.center = (self.display_width/2, self.display_height/2)
+
+    
+    def draw_text(self):
+        #Fill the screen with a color to wipe away anything from last frame
+        self.display_surface.fill(self.bg_colour)
+
+        #Copy the text surface object to the display surface object at the center coordinate.
+        self.display_surface.blit(self.label_text, self.label_text_rect)
