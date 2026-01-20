@@ -46,12 +46,15 @@ class Server_Control:
         #System OSC Handlers
         self.osc_server.map_osc_handler('/messaging/send_message', self.router.handle_ticker_on_osc_message)
         self.osc_server.map_osc_handler('/messaging/stop_message', self.router.handle_ticker_off_osc_message)
+        self.osc_server.map_osc_handler('/client/control/stacked_image', self.router.handle_stacked_image_change_message)
+
         #Handles user Configured OSC Input
         self.osc_server.set_default_handler(self.router.handle_custom_osc_input_message)
 
     def __unmap_osc_handlers(self):
         self.osc_server.unmap_osc_handler('/messaging/send_message', self.router.handle_ticker_on_osc_message)
         self.osc_server.unmap_osc_handler('/messaging/stop_message', self.router.handle_ticker_off_osc_message)
+        self.osc_server.map_osc_handler('/client/control/stacked_image', self.router.handle_stacked_image_change_message)
 
     def __read_and_set_settings(self):
         """Reads the ip settings and sets these in memory."""

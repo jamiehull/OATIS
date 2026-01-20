@@ -254,8 +254,6 @@ class Static_Text_Config(Config_Base_Frame):
             self.text_size.enable_entry()
             self.text_size.set_value("")
 
-
-
 class Static_Image_Config(Config_Base_Frame):
     def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
         super().__init__(parent, database_connection, display_surface_id, widget_string)
@@ -298,13 +296,13 @@ class Stacked_Image_Config(Config_Base_Frame):
     def update_logo_combobox_values(self):
         values_list = []
 
-        rows = self.db.get_2column_data("image_id", "image_name", "images")
+        rows = self.db.get_2column_data("image_stack_id", "image_stack_name", "image_stacks")
 
         for row in rows:
-            image_id = row[0]
-            image_name = row[1]
-            image_id_name = f"{image_id}:{image_name}"
-            values_list.append(image_id_name)
+            image_stack_id = row[0]
+            image_stack_name = row[1]
+            image_stack_id_name = f"{image_stack_id}:{image_stack_name}"
+            values_list.append(image_stack_id_name)
 
         self.image_stack.set_values(values_list)
 

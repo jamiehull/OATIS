@@ -48,6 +48,7 @@ class Window:
         #Paths
         self.default_display_template_path = path.abspath(path.join(path.dirname(__file__), "data/defaults/default_display_template.json"))
         self.display_template_path = path.abspath(path.join(path.dirname(__file__), "data/display_template.json"))
+        self.image_stacks_path = path.abspath(path.join(path.dirname(__file__), "data/image_stacks.json"))
         self.images_path = path.abspath(path.join(path.dirname(__file__), "data/images"))
         self.settings_path = path.abspath(path.join(path.dirname(__file__), "data/settings.json"))
 
@@ -85,9 +86,10 @@ class Window:
         self.horizontal_center = self.display_surface.get_width() / 2
         self.vertical_center = self.display_surface.get_height() / 2
 
-        #Clock widget surfaces - used to trigger alarm indicator
+        #Widgets with triggers - lists are used to allow access to change widget parametars at runtime
         self.clock_widget_surfaces_list = []
         self.indicator_surfaces_list = []
+        self.stacked_image_surfaces_list = []
         
         #Do the setup Commands
         self.__setup()
@@ -249,6 +251,7 @@ class Window:
             #Clear caches
             self.clock_widget_surfaces_list.clear()
             self.indicator_surfaces_list.clear()
+            self.stacked_image_surfaces_list.clear()
 
             #Defines rows / columns and which are merged
             self.grid = layout_matrix
@@ -269,7 +272,7 @@ class Window:
             print(f"Layout Total Columns:{total_columns}, width:{column_size}")
             print(f"Layout Total Rows:{total_rows}, height:{row_size}")
 
-            #Find the display secions in the layout matrix and their top_left_coordinate
+            #Find the display sections in the layout matrix and their top_left_coordinate
             display_section_dict :dict = find_display_sections(self.grid)
 
             #List to hold display surfaces
@@ -320,6 +323,9 @@ class Window:
                 elif widget_string == "indicator":
                     self.indicator_surfaces_list.append(int(display_section_id))
 
+                #If a stacked_image widget add to the stacked_image list to allow it to be triggered
+                elif widget_string == "stacked_image":
+                    self.stacked_image_surfaces_list.append(int(display_section_id))
 
         else:
             print("Cannot build layout, invalid layout matrix.")
@@ -367,7 +373,7 @@ class Window:
         elif widget_string == "static_image":
             widget = Static_Image(display_surface, widget_config)
         elif widget_string == "stacked_image":
-            widget = Analogue_Clock(display_surface, widget_config)
+            widget = Stacked_Image(display_surface, widget_config)
         
         
         elif widget_string == "top_banner":
@@ -443,12 +449,14 @@ class Window:
         self.osc.map_osc_handler("/client/control/ticker", self.ticker_handler)
         self.osc.map_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
         self.osc.map_osc_handler('/client/control/frames', self.show_frame_handler)
+        self.osc.map_osc_handler('/client/control/stacked_image', self.image_stack_handler)
 
     def __unmap_gui_handlers(self):
         #Global Handlers
         self.osc.unmap_osc_handler('/client/control/signal_lights/', self.signal_light_handler)
         self.osc.unmap_osc_handler("/client/control/ticker", self.ticker_handler)
         self.osc.unmap_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
+        self.osc.map_osc_handler('/client/control/stacked_image', self.image_stack_handler)
         #self.osc.unmap_osc_handler('/client/control/frames', self.show_frame_handler)
 
     #Reads ip settings from the settings file and applies them
@@ -480,6 +488,17 @@ class Window:
         except Exception as e:
             self.logger.error(f"Error Parsing recieved JSON: {e}")
 
+    def __write_image_stack_dict_to_file(self, image_stack_dict):
+        try:
+            self.logger.debug(f"Writing Image Stack Dict to file.")
+            write_dict_to_file(image_stack_dict, self.image_stacks_path)
+            self.logger.debug(f"Image Stack Dict Saved")
+
+            self.logger.info("JSON Image Stack info Recieved From Server and stored on device local cache.")
+
+        except Exception as e:
+            self.logger.error(f"Error Parsing recieved JSON: {e}")
+
 #----------------TCP Network Commands-----------------------
     #----------Requestors-retrieving data from the server-USES TCP FILE TRANSFER------------------------
 
@@ -495,7 +514,7 @@ class Window:
                     self.logger.debug(f"Deleted: {filename}")
 
             #Request the new logo file
-            self.logger.debug("Requesting new image files.")
+            self.logger.debug(f"Requesting new image files. {image_id_list}")
             tcp_client = TCP_Client()
 
             #Build the Message and send
@@ -611,7 +630,8 @@ class Window:
                     self.write_display_template_to_file(arguments)
 
                     #Retrieve any image_id's from the display template and get these images from the server
-                    image_id_list = []
+                    self.image_id_list = []
+                    image_stack_dict = {}
                     display_surface_config_dict = arguments["display_surfaces"]
 
                     for key in display_surface_config_dict:
@@ -622,11 +642,34 @@ class Window:
                         if (widget_string in image_widget_strings_list):
                             widget_config : dict  = display_surface_config["widget_config"]
                             image_id = widget_config.get("image_id")
-                            
-                            if (image_id not in image_id_list):
-                                image_id_list.append(image_id)
 
-                    self.__update_image_files(image_id_list)
+                            #Add each image_id to the list if not already in it
+                            if (image_id not in self.image_id_list):
+                                self.image_id_list.append(image_id)
+
+                        elif widget_string == "stacked_image":
+                            widget_config : dict  = display_surface_config["widget_config"]
+                            image_stack_id = widget_config.get("image_stack_id")
+
+                            #Ask the server for image_ids associated with this image_stack
+                            stack_image_ids_list = self.__request_image_stack_image_ids(image_stack_id)
+
+                            #If request was succesful
+                            if stack_image_ids_list != False:
+
+                                #Add image stack id and associated image_id's to the dict
+                                image_stack_dict[image_stack_id] = stack_image_ids_list
+                                for image_id in stack_image_ids_list:
+
+                                    #Add each image_id to the list if not already in it
+                                    if (image_id not in self.image_id_list):
+                                        self.image_id_list.append(image_id)
+
+                    #Write image_stack_ids and associated image_ids to a file                    
+                    self.__write_image_stack_dict_to_file(image_stack_dict)
+
+                    #Get all required image files from server
+                    self.__update_image_files(self.image_id_list)
             else:
                 self.logger.error(f"Server returned invalid status: {request_status}")
 
@@ -635,6 +678,30 @@ class Window:
 
         except Exception as e:
             self.logger.error(f"Cannot connect to server: {e}")
+
+    #Requests the image_ids associated with an image_stack_id
+    def __request_image_stack_image_ids(self, image_stack_id) -> list:
+        """Requests the image_ids in an image stack, returns a list of image_ids if successful, false if not."""
+        try:
+            tcp_client = TCP_Client()
+            message = tcp_client.build_tcp_message("/config/image_stacks/get_image_ids", {"image_stack_id":image_stack_id})
+            command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
+            self.logger.debug(f"Data recieved from server:")
+            self.logger.debug(f"Command:{command}")
+            self.logger.debug(f"Arguments:{arguments}")
+            self.logger.debug(f"Data:{data}")
+
+            image_ids_list = arguments["image_ids_list"]
+
+            return image_ids_list
+
+        except (ConnectionRefusedError, TimeoutError) as e:
+            self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Cannot connect to server: {e}")
+            return False
 
     #----------Heartbeat------------------------
 
@@ -676,6 +743,23 @@ class Window:
 
             
 #----------------------Handlers-------------------------------------
+    def image_stack_handler(self, address, *args):
+        """Handles an incoming OSC command to change the image shown in an image stack"""
+        display_surface_id = int(args[0])
+        image_stack_id = int(args[1])
+        image_id = int(args[2])
+        print(f"Incoming Data: Display Surface ID: {display_surface_id}, Image Stack ID:{image_stack_id}, Image ID:{image_id}")
+
+        #Check the surface id is valid
+        if display_surface_id in self.stacked_image_surfaces_list:
+        
+            #Get the image_stack widget
+            image_stack_widget : Stacked_Image = self.widget_dict.get(display_surface_id)
+            image_stack_widget.change_image(image_id)
+
+        else:
+            self.logger.error(f"Error changing stacked image, invalid arguments {args}")
+
 
     def signal_light_handler(self, address, *args):
         """Handles an incoming OSC command to change the state of an indicator light"""

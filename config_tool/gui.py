@@ -80,6 +80,7 @@ class GUI:
 
         #------------------------------MAIN WINDOW FRAME-TAB FRAMES STACKED--------------------------------------------------
         image_store_frame = Image_Store(window_frame, self.db, True)
+        image_stacks_frame = Image_Stacks(window_frame, self.db, True)
         config_frame = Device_Config(window_frame, self.db, True)
         gpio_config_frame = Controller_Config(window_frame, self.db, True)
         input_triggers_frame = Input_Triggers(window_frame, self.db, True)
@@ -93,6 +94,7 @@ class GUI:
 
         self.frames_dict = {
             "Image Store":image_store_frame,
+            "Image Stacks":image_stacks_frame,
             "Device Config":config_frame,
             "GPIO Config":gpio_config_frame,
             "Input Triggers":input_triggers_frame,

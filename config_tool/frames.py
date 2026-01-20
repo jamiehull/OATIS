@@ -134,6 +134,252 @@ class Image_Store(BaseFrameNew):
 
             self.logger.info("Updated Input widgets")
       
+class Image_Stacks(BaseFrameNew):
+    def __init__(self, parent, database_connection, scrollable):
+        super().__init__(parent, database_connection, scrollable)
+    
+        #Rows to make in the frame
+        row1 = Input_Row("Name:", "text_entry", "not_null")
+        self.name_input_widget_index = 0
+
+        row2 = Input_Row("Select Images to Put in the Stack", "title", "n/a")
+        
+        row3 = Input_Row(None, "dual_selection_columns", "n/a", ["Available Images", "Images in Stack"])
+        self.dual_selection_columns_index = 2
+        
+        row_list = [row1, row2, row3]
+
+        #Initialise the Base Frame with the above rows
+        self.build_gui("Image Stacks", "image_stacks", "image_stack_name", "image_stack_id", row_list)
+
+        #Set the Button Commands
+        self.set_save_btn_command(self.save_btn_cmd)
+
+        #Overriding the default delete command in base frame for proper handling of foreign key references
+        self.set_delete_btn_command(self.del_btn_cmd)
+
+        #Set on raise callback - this is the callback triggered when this frame is raised to the top
+        self.set_on_raise_callback(self.menu_select_callbacks)
+
+        #Set widget Bindings
+        self.__set_bindings()
+
+        #Update treeviewer with currrent data
+        self.update_tree()
+
+        #Update the selection tree with current data
+        self.__update_selection_tree()
+
+#-----------------------------------------COMMON FUNCTIONS - Included in all children of Base Frame----------------------------------------------------------
+    #This function is called by the GUI  Menu Buttons when this frame is selected
+    def menu_select_callbacks(self):
+        """Executes listed callbacks when this frame is raised by selecting it in the gui menu."""
+
+        self.update_tree()
+        self.__update_selection_tree()
+
+    def __set_bindings(self):
+        """Sets callbacks for widgets."""
+
+        #Setup Binding clicking a row to populating the data fields
+        self.tree.bind("<ButtonRelease-1>", self.__update_input_widgets)
+
+    #Called when the save button is clicked
+    def save_btn_cmd(self):
+        """Validates and collects input data. \n Determins whether a new item is being saved or existing one updated. \n Then saves the data to the database."""
+        self.logger.info("#######---Save Button Clicked---#######")
+
+        valid_status, input_data_list = self.get_and_validate_input_data()
+
+        if valid_status == True:
+            #Extract all the data from the list of tuples
+            image_stack_name = input_data_list[self.name_input_widget_index]
+            image_list = input_data_list[self.dual_selection_columns_index]
+
+            #Save the data to the database
+            self.__save_input_data(image_stack_name, image_list)
+
+            self.input_frame.clear_all_entries()
+
+            #Set the state indicator to true - no tree item is selected
+            self.set_new_item_state(True)
+
+            self.logger.info("Saved Input Data to Database")
+
+            self.update_tree()
+
+        else:
+            #Show a message box stating cannot save data
+            invalid_data_warning()
+
+    def del_btn_cmd(self):
+          """Custom delete function instead of using the one in BaseFrame, 
+          this is to handle deletion of Foreign key references properly."""
+          self.logger.info(f"#######---Delete Button Pressed - Attempting Deletion of selected item---#######")
+          #Get the DB id of the selected treeview item
+          in_focus_db_id = self.tree.get_in_focus_item_db_id()
+          self.logger.debug(f"In focus dtabase ID:{in_focus_db_id}")
+
+          if in_focus_db_id != None:
+               #Confirm with the user they want to delete
+               confirmation = confirm_delete()
+
+               if confirmation == True:
+                    #Check not in use by a widget
+                    widget_feedback = True
+                    rows = self.db.get_current_row_data("stacked_image", "image_stack_id", in_focus_db_id)
+
+                    if rows != []:
+                        widget_feedback = False
+                            
+
+                    if widget_feedback == True:
+                        #Delete mappping Foreign Key references
+                        feedback = self.db.delete_row("image_stack_mappings", "image_stack_id", in_focus_db_id)
+                    
+                        if feedback == True:
+                            #Delete the item
+                            feedback = self.db.delete_row(self.table, self.id_column, in_focus_db_id)
+
+                            if feedback == True:
+                                self.logger.info(f"Deleted rows with {self.id_column}: {in_focus_db_id} in table {self.table}")
+
+                                #Clear the input widgets
+                                self.input_frame.clear_all_entries()
+
+                                #Set the State indicator to True
+                                self.set_new_item_state(True)
+
+                                #Update the tree
+                                self.update_tree()
+
+                            else:
+                                #Warn the user the item cannot be deleted to maintain database integrity
+                                delete_warning(feedback)
+
+                        else:
+                            #Warn the user the item cannot be deleted to maintain database integrity
+                            delete_warning(feedback)
+
+                    else:
+                         #Warn the user the item cannot be deleted to maintain database integrity
+                         delete_warning("Image Stack in use by a widget instance.")
+
+    #Save input data to the database
+    def __save_input_data(self, image_stack_name, image_list):
+        """Saves input data to the database."""
+        #Saving a new item
+        if self.new_item == True:
+            self.logger.info("Saving new item to the database")
+
+            #Add the validated data to the database
+            self.db.add_image_stack(image_stack_name)
+
+            #Get the id of the newly added row
+            #row_id = self.db.get_1column_data("input_logic_id", "input_logics", "input_logic_name", input_logic_name)[0]
+            db_id = self.db.get_last_insert_row_id()
+            self.logger.debug(f"Image Stack saved, database ID: {db_id}")
+
+            #Add the image_stack_mapping mappings
+            for mapping in image_list:
+                image_stack_id :str = db_id
+                image_id = mapping[0]
+                self.db.add_image_stack_mapping(image_stack_id, image_id)
+
+        #Updating an existing item
+        else:
+            self.logger.info("Updating existing database entry")
+
+            #Get the db_id of the selected item
+            db_id = self.tree.get_in_focus_item_db_id()
+
+            #Update the Image Stack row
+            self.logger.debug(f"Updating Image Stack Row with id {db_id}")
+            self.db.update_row(self.table, "image_stack_name", self.id_column, image_stack_name, db_id)
+
+            #Update the Image Stack mappings
+            self.logger.debug(f"Retrieving Image Stack mappings for Image Stack {db_id}")
+            db_mappings_list : list = self.db.get_1column_data("image_id", "image_stack_mappings", "image_stack_id", db_id)
+            add_mappings_list : list = []
+
+            self.logger.debug(f"Comparing Database mappings with those currently selected by the user.")
+            for mapping in image_list:
+                image_id = mapping[0]
+                if image_id in db_mappings_list:
+                    db_mappings_list.remove(image_id)
+                else:
+                    add_mappings_list.append(image_id)
+
+            remove_mappings_list = db_mappings_list
+
+            #Add
+            self.logger.debug(f"Adding new mappings to the database")
+            for image_id in add_mappings_list:
+                self.logger.debug(f"Adding mapping with Image Stack ID {db_id} and Image ID {image_id}")
+                self.db.add_image_stack_mapping(db_id, image_id)
+
+            #Remove
+            self.logger.debug("Removing redundant mappings from the database")
+            for image_id in remove_mappings_list:
+                self.logger.debug(f"Removing mapping with Image Stack ID {db_id} and Image ID {image_id}")
+                self.db.delete_row_dual_condition("image_stack_mappings", "image_stack_id", db_id, "image_id", image_id)
+
+    def __update_input_widgets(self, event):
+        """Updates the input widgets with data for the selected treeview item"""
+
+        self.logger.info(f"Updating Input widgets for selected treeviever item.")
+
+        #Get the db id of the selected item
+        db_id = self.tree.get_in_focus_item_db_id()
+        self.logger.debug(f"Selected item DB ID: {db_id}")
+
+        if db_id != None:
+            #Get all data from the db for the currently selected item
+            item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
+            self.logger.debug(f"Item data: {item_data_list}")
+
+            #Extract the data from the item data list
+            name = item_data_list[1]
+
+            #Add all data to the input frame widgets
+            self.input_frame.set_all_data(name)
+
+            #Get the image_stack_mappings from the database
+            self.logger.debug(f"Retrieving Image Stack Mappings for Image_Stack {db_id}")
+            image_id_list = self.db.get_1column_data("image_id", "image_stack_mappings", "image_stack_id", db_id)
+
+            #Get the name of each Image and add to a list
+            image_name_list = []
+            for image_id in image_id_list:
+                self.logger.debug(f"Looking up name associated to Image ID: {image_id}")
+                image_name = self.db.get_1column_data("image_name", "images", "image_id", image_id)[0]
+                image_name_list.append(image_name)
+
+            #Combine the id and name lists
+            self.logger.debug(f"Combining ID an Name lists")
+            image_id_name_list = combine_lists(image_id_list, image_name_list)
+            self.logger.debug(f"Combined List result: {image_id_name_list}")
+
+            #Add the mappings to the selection column tree
+            self.logger.debug(f"Updating Selection Column with combined list data.")
+            dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
+            dual_selection_column_widget.set_column_values(1, image_id_name_list)
+
+            #Set the state indicator to false, an existing item has been loaded into the input widgets
+            self.set_new_item_state(False)
+
+            self.logger.info("Updated Input widgets")
+
+#-------------------------------------------------------------------------------------------------------------------
+
+    def __update_selection_tree(self):
+        """Updates the Dual Selection Tree with current database values."""
+        self.logger.debug("Updating the Dual Selection Tree with current database values.")
+        dual_selection_column_widget :Dual_Selection_Columns = self.input_frame.get_widget_object(self.dual_selection_columns_index)
+        
+        image_rows = self.db.get_2column_data("image_id", "image_name", "images")
+        dual_selection_column_widget.set_column_values(0, image_rows)
+ 
 class Device_Config(BaseFrameNew):
     def __init__(self, parent, database_connection, scrollable):
         super().__init__(parent, database_connection, scrollable)
@@ -2337,11 +2583,17 @@ class Display_Instances(BaseFrameNew):
                         input_logic_id_name = f"{input_logic_id}:{input_logic_name}"
                         config_list.insert(4, input_logic_id_name)
 
-                    elif (widget_string == "top_banner") or (widget_string == "static_image") or (widget_string == "stacked_image"):
+                    elif (widget_string == "top_banner") or (widget_string == "static_image"):
                         image_id = config_list.pop(0)
                         image_name = self.db.get_1column_data("image_name", "images", "image_id", image_id)[0]
                         image_id_name = f"{image_id}:{image_name}"
                         config_list.insert(1, image_id_name)
+
+                    elif (widget_string == "stacked_image"):
+                        image_stack_id = config_list.pop(0)
+                        image_stack_name = self.db.get_1column_data("image_stack_name", "image_stacks", "image_stack_id", image_stack_id)[0]
+                        image_stack_id_name = f"{image_stack_id}:{image_stack_name}"
+                        config_list.insert(1, image_stack_id_name)
 
                     config_frame = Config_Frame(widget_string, display_surface_id, config_list)
                     config_frames_list.append(config_frame)
@@ -2375,7 +2627,6 @@ class Display_Instances(BaseFrameNew):
         #Add the list to the combobox
         display_instance_frame : Display_Instance_Config_Base_Frame = self.input_frame.get_widget_object(0)
         display_instance_frame.set_display_template_combobox_values(id_name_list)
-#-------------------------------------------------------------------------------------------------------------------
    
 class Messaging_Groups(BaseFrameNew):
     def __init__(self, parent, database_connection, scrollable):
@@ -2486,8 +2737,6 @@ class Messaging_Groups(BaseFrameNew):
             self.set_new_item_state(False)
 
             self.logger.info("Updated Input widgets")
-
-#-------------------------------------------------------------------------------------------------------------------
 
 class Server_Config(BaseFrameNew):
     def __init__(self, parent, database_connection, scrollable):

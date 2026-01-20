@@ -160,3 +160,5 @@ client/data/display_template.json
 client/data/settings.json
 client/data/settings.json
 config_tool/temp.png
+/test
+client/data/image_stacks.json

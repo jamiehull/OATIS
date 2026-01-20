@@ -47,8 +47,42 @@ class Router:
         self.__map_handler_function("/messaging/get_active_groups", self.handle_get_active_message_groups)
         self.__map_handler_function("/control/client/reload_display_template", self.handle_reload_display)
         self.__map_handler_function("/control/client/identify", self.handle_identify)
+        self.__map_handler_function("/config/image_stacks/get_image_ids", self.handle_get_stacked_image_ids)
 
     #--------------------------------EXTERNAL-FACING-OSC-HANDLERS---------------------------------------------------
+
+    def handle_stacked_image_change_message(self, address, *args):
+        """Expects address: /client/control/stacked_image
+        Args: ("device_id", "display_surface_id", "image_stack_id", "image_id)"""
+
+        self.logger.debug(f"IMAGE STACK OSC HANDLER - Incoming Data: {address}, {args}")
+        try:
+            self.db.connect()
+
+            #Extract the args
+            device_id = str(args[0])
+            display_surface_id = str(args[1])
+            image_stack_id = str(args[2])
+            image_id = str(args[3])
+
+            #Query the database to get the device ip associated with the device_id
+            device_list = self.db.get_1column_data("device_ip", "devices", "device_id", device_id)
+            self.logger.debug(f"Device associated with device id:{device_id}, {device_list}")
+
+            #Forward OSC message to client
+            self.logger.debug(f"Sending message to client")
+            send_status = self.forward_osc_message(device_list, "/client/control/stacked_image", [display_surface_id, image_stack_id, image_id])
+            self.logger.debug(f"Send Status for device {device_id}: {send_status}")
+
+
+        except IndexError:
+            self.logger.error(f"Unable to handle image stack OSC message, the device does not exist in the database.")
+
+        except Exception as e:
+            self.logger.error(f"Unable to handle image stack OSC message, reason: {e}")
+
+        finally:
+            self.db.close_connection()
 
     def handle_ticker_on_osc_message(self, address, *args):
         """Expects address: /messaging/send_message
@@ -658,6 +692,31 @@ class Router:
 
         return output_command, output_arguments, output_data
    
+    def handle_get_stacked_image_ids(self, input_command:str, input_arguments:dict, input_data):
+        output_command = "/config/image_stacks/get_image_ids"
+        self.logger.debug("#############IMAGE STACKS GET IMAGE IDS HANDLER INVOKED#############")
+
+        #Extract the data
+        image_stack_id = input_arguments.get("image_stack_id")
+
+        #Get the device IP
+        #device_ip = self.db.get_1column_data("device_ip", "devices", "device_id", device_id)[0]
+
+        #Lookup the image ID's associated with the image stack
+        image_ids_list = self.db.get_1column_data("image_id", "image_stack_mappings", "image_stack_id", image_stack_id)
+        
+        #Build the response message
+        #command - this is a variable stored at the start of this function
+        output_arguments = {
+            "status" : "OK",
+            "image_ids_list" : image_ids_list,
+            "binary_response" : False
+        }
+        output_data = None
+
+        return output_command, output_arguments, output_data
+   
+
     #--------------------------------CONTROLLER-HANDLERS---------------------------------------------------
     #Sends OSC commands over the network given a GPI state change
     def handle_gpi(self, *args):

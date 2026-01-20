@@ -39,6 +39,8 @@ class DB:
             "analogue_clock",
             "digital_clock",
             "static_text",
+            "image_stack_mappings",
+            "image_stacks",
             "static_image",
             "stacked_image",
             "indicator",
@@ -238,6 +240,20 @@ class DB:
                             FOREIGN KEY(output_logic_id) REFERENCES output_logics (output_logic_id),
                             FOREIGN KEY(output_trigger_id) REFERENCES output_triggers (output_trigger_id)
                             )""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS image_stacks 
+                            (image_stack_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            image_stack_name TEXT NOT NULL
+                            )""")
+
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS image_stack_mappings
+                            (image_stack_id INTEGER NOT NULL,
+                            image_id INTEGER NOT NULL,
+                            FOREIGN KEY(image_stack_id) REFERENCES image_stacks (image_stack_id),
+                            FOREIGN KEY(image_id) REFERENCES images (image_id)
+                            )""")
+        
+        
 
         #----------------------------------------------Display Widget Config----------------------------------------------
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS indicator 
@@ -457,6 +473,18 @@ class DB:
     def add_output_logic_mapping(self, output_logic_id:str, output_trigger_id:str):
         #Insert a new value into the database table
         self.cursor.execute(f"INSERT INTO output_logic_mapping (output_logic_id, output_trigger_id) VALUES (?,?)",(output_logic_id, output_trigger_id))
+        self.connection.commit()   
+
+    #Add an image_stack entry to the database
+    def add_image_stack(self, image_stack_name:str):
+        #Insert a new value into the database table
+        self.cursor.execute(f"INSERT INTO image_stacks (image_stack_name) VALUES (?)",(image_stack_name,))
+        self.connection.commit()   
+
+    #Add an image_stack_mapping entry to the database
+    def add_image_stack_mapping(self, image_stack_id:str, image_id:str):
+        #Insert a new value into the database table
+        self.cursor.execute(f"INSERT INTO image_stack_mappings (image_stack_id, image_id) VALUES (?,?)",(image_stack_id, image_id))
         self.connection.commit()   
 
     def add_top_banner(self, display_instance_id, display_surface_id, config_list:list):
