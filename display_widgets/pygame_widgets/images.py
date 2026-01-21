@@ -129,8 +129,11 @@ class Stacked_Image(Widget):
         image_stacks_dict : dict = open_json_file(self.image_stacks_path)
         self.logger.debug(f"Image Stacks Dict:{image_stacks_dict}")
 
+        image_stack_id_dict : dict = image_stacks_dict.get("image_stack_id_dict")
+        image_stack_config_dict : dict = image_stack_id_dict.get(self.image_stack_id)
+
         #Get the image ids list for the image_stack_id
-        self.image_ids_list :list = image_stacks_dict.get(self.image_stack_id)
+        self.image_ids_list : list = image_stack_config_dict.get("image_ids_list")
 
         #Build each image object and store in a dict
         for image_id in self.image_ids_list:

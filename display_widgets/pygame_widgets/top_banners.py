@@ -91,8 +91,9 @@ class Ticker_Banner(Widget):
     def ticker_off(self):
         self.ticker_enabled = False
         
-class Logo_Date_Location_Top_Banner:
+class Logo_Date_Location_Top_Banner(Widget):
     def __init__(self, parent_surface, widget_config:dict):
+        super().__init__()
 
         #Store reference to the surface
         self.display_surface :pygame.Surface = parent_surface
@@ -140,12 +141,10 @@ class Logo_Date_Location_Top_Banner:
         #Set the location
         self.set_location(self.location_str)
 
-    #Update the Display
-    def render(self):
-        self.render_bg()
-        self.__render_date()
-        self.__render_logo()
-        self.render_location()
+        self.add_function_to_render(self.render_bg)
+        self.add_function_to_render(self.__render_date)
+        self.add_function_to_render(self.__render_logo)
+        self.add_function_to_render(self.render_location)
 
 
     def render_bg(self):

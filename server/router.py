@@ -53,7 +53,7 @@ class Router:
 
     def handle_stacked_image_change_message(self, address, *args):
         """Expects address: /client/control/stacked_image
-        Args: ("device_id", "display_surface_id", "image_stack_id", "image_id)"""
+        Args: ("device_id" "image_stack_id", "image_id)"""
 
         self.logger.debug(f"IMAGE STACK OSC HANDLER - Incoming Data: {address}, {args}")
         try:
@@ -61,9 +61,9 @@ class Router:
 
             #Extract the args
             device_id = str(args[0])
-            display_surface_id = str(args[1])
-            image_stack_id = str(args[2])
-            image_id = str(args[3])
+            #display_surface_id = str(args[1])
+            image_stack_id = str(args[1])
+            image_id = str(args[2])
 
             #Query the database to get the device ip associated with the device_id
             device_list = self.db.get_1column_data("device_ip", "devices", "device_id", device_id)
@@ -71,7 +71,7 @@ class Router:
 
             #Forward OSC message to client
             self.logger.debug(f"Sending message to client")
-            send_status = self.forward_osc_message(device_list, "/client/control/stacked_image", [display_surface_id, image_stack_id, image_id])
+            send_status = self.forward_osc_message(device_list, "/client/control/stacked_image", [image_stack_id, image_id])
             self.logger.debug(f"Send Status for device {device_id}: {send_status}")
 
 

@@ -630,12 +630,14 @@ class Window:
                     self.write_display_template_to_file(arguments)
 
                     #Retrieve any image_id's from the display template and get these images from the server
-                    self.image_id_list = []
-                    image_stack_dict = {}
+                    self.image_id_request_list = []
+                    #Make a new dictionary for storing image_stack info
+                    image_stack_dict = {"image_stack_id_dict":{}}
+
                     display_surface_config_dict = arguments["display_surfaces"]
 
-                    for key in display_surface_config_dict:
-                        display_surface_config = display_surface_config_dict.get(key)
+                    for display_surface_id in display_surface_config_dict:
+                        display_surface_config = display_surface_config_dict.get(display_surface_id)
                         self.logger.debug(f"Display Surface Config Dict: {display_surface_config}")
                         widget_string = display_surface_config["widget_string"]
 
@@ -644,11 +646,13 @@ class Window:
                             image_id = widget_config.get("image_id")
 
                             #Add each image_id to the list if not already in it
-                            if (image_id not in self.image_id_list):
-                                self.image_id_list.append(image_id)
+                            if (image_id not in self.image_id_request_list):
+                                self.image_id_request_list.append(image_id)
 
                         elif widget_string == "stacked_image":
                             widget_config : dict  = display_surface_config["widget_config"]
+
+                            #Get the image_stack_id
                             image_stack_id = widget_config.get("image_stack_id")
 
                             #Ask the server for image_ids associated with this image_stack
@@ -656,20 +660,31 @@ class Window:
 
                             #If request was succesful
                             if stack_image_ids_list != False:
+                                #----------------------------------------
+                                #Build image Stack JSON File
+                                image_stack_id_dict = image_stack_dict.get("image_stack_id_dict")
 
-                                #Add image stack id and associated image_id's to the dict
-                                image_stack_dict[image_stack_id] = stack_image_ids_list
+                                if image_stack_id not in image_stack_id_dict:
+                                    image_stack_id_dict[image_stack_id] = ({"image_ids_list":stack_image_ids_list, "display_surfaces_list":[display_surface_id]})
+
+                                else:
+                                    image_stack_config : dict = image_stack_id_dict.get(image_stack_id)
+                                    display_surfaces_list : list = image_stack_config.get("display_surfaces_list")
+                                    display_surfaces_list.append(display_surface_id)
+                                
+                                #----------------------------------------
+
                                 for image_id in stack_image_ids_list:
 
                                     #Add each image_id to the list if not already in it
-                                    if (image_id not in self.image_id_list):
-                                        self.image_id_list.append(image_id)
+                                    if (image_id not in self.image_id_request_list):
+                                        self.image_id_request_list.append(image_id)
 
                     #Write image_stack_ids and associated image_ids to a file                    
                     self.__write_image_stack_dict_to_file(image_stack_dict)
 
                     #Get all required image files from server
-                    self.__update_image_files(self.image_id_list)
+                    self.__update_image_files(self.image_id_request_list)
             else:
                 self.logger.error(f"Server returned invalid status: {request_status}")
 
@@ -680,7 +695,7 @@ class Window:
             self.logger.error(f"Cannot connect to server: {e}")
 
     #Requests the image_ids associated with an image_stack_id
-    def __request_image_stack_image_ids(self, image_stack_id) -> list:
+    def __request_image_stack_image_ids(self, image_stack_id) -> list[int]:
         """Requests the image_ids in an image stack, returns a list of image_ids if successful, false if not."""
         try:
             tcp_client = TCP_Client()
@@ -740,27 +755,45 @@ class Window:
                 self.wait_time = 5
 
             sleep(self.wait_time)
-
             
 #----------------------Handlers-------------------------------------
     def image_stack_handler(self, address, *args):
         """Handles an incoming OSC command to change the image shown in an image stack"""
-        display_surface_id = int(args[0])
-        image_stack_id = int(args[1])
-        image_id = int(args[2])
-        print(f"Incoming Data: Display Surface ID: {display_surface_id}, Image Stack ID:{image_stack_id}, Image ID:{image_id}")
+        try:
+            #display_surface_id = int(args[0])
+            image_stack_id = str(args[0])
+            image_id = int(args[1])
+            print(f"Incoming Data: Image Stack ID:{image_stack_id}, Image ID:{image_id}")
 
-        #Check the surface id is valid
-        if display_surface_id in self.stacked_image_surfaces_list:
-        
-            #Get the image_stack widget
-            image_stack_widget : Stacked_Image = self.widget_dict.get(display_surface_id)
-            image_stack_widget.change_image(image_id)
+            #Open Image Stack Dict from File
+            image_stack_dict : dict = open_json_file(self.image_stacks_path)
+            image_stack_id_dict : dict = image_stack_dict.get("image_stack_id_dict")
 
-        else:
-            self.logger.error(f"Error changing stacked image, invalid arguments {args}")
+            #Check Image Stack ID is Valid
+            if image_stack_id in image_stack_id_dict:
+                image_stack_config_dict : dict = image_stack_id_dict.get(image_stack_id)
+                image_ids_list : list = image_stack_config_dict.get("image_ids_list")
+                display_surfaces_list : list = image_stack_config_dict.get("display_surfaces_list")
 
+                #Check if image_id is valid
+                if image_id in image_ids_list:
+                    
+                    #Change the image for the image stack on each surface
+                    for display_surface_id in display_surfaces_list:
+                        #Get the image_stack widget
+                        image_stack_widget : Stacked_Image = self.widget_dict.get(int(display_surface_id))
+                        self.logger.info(f"Changing Image of Image Stack in Display Surface:{display_surface_id}")
+                        image_stack_widget.change_image(image_id)
 
+                else:
+                    self.logger.error(f"Error changing stacked image, Invalid Image ID:{image_id}")
+
+            else:
+                self.logger.error(f"Error changing stacked image, Invalid Image Stack ID:{image_stack_id}")
+
+        except Exception as e:
+            self.logger.error(f"Error changing stacked image, invalid arguments:{args}")
+            
     def signal_light_handler(self, address, *args):
         """Handles an incoming OSC command to change the state of an indicator light"""
         display_surface_id = args[0]
@@ -868,7 +901,6 @@ class Window:
         for surface_id in self.clock_widget_surfaces_list:
             clock_widget : Clock = self.widget_dict[surface_id]
             clock_widget.alarm_indicator_flash_disable()
-
 
     #Raises a stacked frame to the top visible layer
     def show_frame(self, frame_number):
