@@ -102,8 +102,8 @@ class Stacked_Image(Widget):
         #Blank list to hold image_ids associated with the image_stack
         self.image_ids_list = []
 
-        #The currently active image
-        self.__active_image_id = 0
+        #The currently active image - default is the OATIS Logo if no images in stack
+        self.__active_image_id = -1
 
         self.logger.info("Building Stacked Image Widget")
         self.__load_images()
@@ -123,6 +123,7 @@ class Stacked_Image(Widget):
 
         except Exception as e:
             self.logger.error(f"Unable to change image stack {self.image_stack_id}'s image. Reason:{e}")
+            self.__active_image_id = -1
             
     def __load_images(self):
         #Open the image_stacks file
@@ -135,6 +136,11 @@ class Stacked_Image(Widget):
         #Get the image ids list for the image_stack_id
         self.image_ids_list : list = image_stack_config_dict.get("image_ids_list")
 
+        #Build an image object for default logo - this is shown if no images are found
+        image_path = self.default_image_path
+        image_native, image_native_rect = self.__build_image_object(image_path)
+        self.native_image_surfaces_dict[-1] = [image_native, image_native_rect]
+
         #Build each image object and store in a dict
         for image_id in self.image_ids_list:
             image_filename = f"{image_id}.png"
@@ -142,8 +148,13 @@ class Stacked_Image(Widget):
             image_native, image_native_rect = self.__build_image_object(image_path)
             self.native_image_surfaces_dict[image_id] = [image_native, image_native_rect]
 
-        #Set the first image in the stack as default active
-        self.__active_image_id = self.image_ids_list[0]
+        if self.image_ids_list != []:
+            #Set the first image in the stack as default active
+            self.__active_image_id = self.image_ids_list[0]
+
+        else:
+            #Show default logo image when no other images are found
+            self.__active_image_id = -1
 
         self.logger.debug(f"Native Image Surfaces Dict:{self.native_image_surfaces_dict}")
 

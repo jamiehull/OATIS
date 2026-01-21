@@ -7,6 +7,7 @@ from tkinter import StringVar
 from database.database_connection import DB
 
 class Server_GUI:
+    """Generates a simple GUI for starting and stopping the OATIS server."""
     def __init__(self):
 
         #This file contains the code for the tkinter main window
@@ -34,16 +35,19 @@ class Server_GUI:
 
         #Status Variables
         self.server_running = StringVar()
-        self.server_running.set("Stopped")
         self.ip_address = StringVar()
 
         #Add the widgets        
         self.__add_widgets()
 
+        #Set initial server state to stopped
+        self.server_running.set("Stopped")
+
         self.logger.info("Entering Main Loop")
         self.root.mainloop()
 
     def __add_widgets(self):
+        """Adds the Tkinter widgets to the window."""
         #------------------------------MAIN WINDOW FRAME--------------------------------------------------
         self.logger.debug("Adding widgets to the self.root window")
         #Main Frame to hold all widgets / sub-frames in the window
@@ -56,37 +60,45 @@ class Server_GUI:
         for i in range(0, 2):
             self.window_frame.rowconfigure(i, weight=1)
 
+        #Add widgets to frame
         self.start_button = ctk.CTkButton(self.window_frame, text="Start Server", command=self.__start_server_thread)
         self.start_button.grid(column=0, row=0, sticky="")
 
         self.stop_button = ctk.CTkButton(self.window_frame, text="Stop Server", command=self.__stop_server)
         self.stop_button.grid(column=1, row=0, sticky="")
 
-        self.bottom_frame = ctk.CTkFrame(self.window_frame, fg_color="#1B1B1B")
-        self.bottom_frame.grid(column=0, row=1, columnspan=2, sticky="esw")
+        #------------------------------FOOTER FRAME--------------------------------------------------
+
+        self.footer_frame = ctk.CTkFrame(self.window_frame, fg_color="#1B1B1B")
+        self.footer_frame.grid(column=0, row=1, columnspan=2, sticky="esw")
 
         #Setup Columns / rows for window_frame
         for i in range(0, 2):
-            self.bottom_frame.columnconfigure(i, weight=1)
+            self.footer_frame.columnconfigure(i, weight=1)
         for i in range(0, 1):
-            self.bottom_frame.rowconfigure(i, weight=1)
+            self.footer_frame.rowconfigure(i, weight=1)
 
-        self.ip_label = ctk.CTkLabel(self.bottom_frame, text="IP Address", textvariable=self.ip_address)
+        #Add widgets to frame
+        self.ip_label = ctk.CTkLabel(self.footer_frame, text="IP Address", textvariable=self.ip_address)
         self.ip_label.grid(column=0, row=0, sticky="w")
 
-        self.status_label = ctk.CTkLabel(self.bottom_frame, text="Status", textvariable=self.server_running)
+        self.status_label = ctk.CTkLabel(self.footer_frame, text="Status", textvariable=self.server_running)
         self.status_label.grid(column=1, row=0, sticky="e")
 
     def __start_server_thread(self):
+        """Called on press of Start button."""
         if (self.server_running.get() == "Stopped") or (self.server_running.get() == "Database not initialised"):
             #Check if the database has been initialised
             db = DB()
             self.logger.debug("Determining state of the database")
             db_status = db.verify_database_setup()
 
+            #DB is Initialised
             if db_status == True:
                 self.server_thread = Thread(target=self.__start_server, daemon=True)
                 self.server_thread.start()
+
+            #DB not Initialised
             else:
                 self.server_running.set("Database not initialised")
                 self.logger.info("Cannot start Server, database is not initialised. Please initialise the DB in config tool before launching the server.")
@@ -95,12 +107,19 @@ class Server_GUI:
             self.logger.info("Cannot start Server, a Server Instance is already running!")
         
     def __start_server(self):
+        """Called by __start_server_thread()"""
         if (self.server_running.get() == "Stopped") or (self.server_running.get() == "Database not initialised"):
+            #Update GUI Server State Variable
             self.server_running.set("Booting")
+
+            #Create an instance of the server
             self.logger.info("Starting Server...")
             self.server = Server_Control(self.server_running)
+
+            #Update GUI Variables
             self.server_running.set(self.server.start_server())
             self.ip_address.set(self.server.get_ip_address())
+
             self.logger.info(f"Server Status: {self.server_running.get()}")
 
             #If we get errors clear the server instance
