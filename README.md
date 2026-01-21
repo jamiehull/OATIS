@@ -1,4 +1,4 @@
-# OATIS V2 - On Air Tally Indicator System - IN TESTING
+# OATIS V2 - On Air Tally Indicator System - IN DEVELOPMENT
 
 <img width="1000" height="300" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
@@ -10,7 +10,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
 
 ## Features
 ### Physical and Network triggers:
-- Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 54 inputs / outputs.
+- Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 52 inputs / outputs.
 - Multiple Arduinos can be connected to the server, giving scope for increased I/O if needed.
 - Support for network input and output triggers using the OSC Protocol, both UDP and TCP.
 - Inputs can be linked to display indicator lamps to show the state of the input trigger.
@@ -21,7 +21,16 @@ Designed to operate in a server-client model, multiple displays can be centrally
   
 ### Customizable displays:
 - Display Builder allows custom displays to be built and applied to multiple clients.
-- Currently available display widgets: Studio Clock, Analogue Clock, Indicator Lamp, Date-Logo-Location Top-Banner (more to be added in the future, suggestions are welcomed!)
+- Currently available display widgets:
+  - Studio Clock
+  - Analogue Clock
+  - Digital Clock
+  - Indicator Lamp
+  - Static Text
+  - Static Image
+  - Stacked Image (Changable via an OSC trigger) - Currently in Development
+  - Date-Logo-Location Top-Banner
+  - More to be added in the future, suggestions are welcomed!
 - Multiple clocks can be displayed at once with the option to change the timezone depending on location.
 - Sync your client device via NTP for accurate time.
 - Add your Own Logo to client displays.
@@ -313,10 +322,11 @@ Select from the active messages column the messages you want to stop.\
 Hit the red arrow button.
 
 # API's 
+OATIS has a series of API's that allow Interaction by external devices and software:
+- OSC Protocol
+- Server listens on UDP / TCP port 1337
 
-## Server API's - For Interaction by external devices and software - OSC Protocol - TCP/UDP Port 1337
-
-#### Network Input Triggers
+## Network Input Triggers
 
 Network Input Triggers are user configurable.
 The user chooses which OSC address will be used to trigger the Input Trigger.
@@ -326,31 +336,60 @@ Valid arguments are:
 
 <img width="490" height="164" alt="Screenshot 2026-01-16 at 16 56 44" src="https://github.com/user-attachments/assets/3bd30638-2e13-4e62-92af-025c69e5e33e" />
 
-#### Messaging
+## Changing Stacked Images
+
+Stacked Images are a series of images stacked ontop of each other on a client display layout.\
+The visible image (the one at the top of the stack) can be changed through the below API.
+
+#### Command:
+```
+/client/control/stacked_image
+```
+
+#### Arguments:
+```
+"device_id" "image_stack_id" "image_id"
+```
+
+Where:
+- device_id is the id of the client device you want to change the image on.
+- image_stack_id is the id of the Image Stack we will be interacting with.
+- image_id is the id of the image we want to raise to the front.
+
+
+## Messaging
 
 Messages can be sent to clients using the Message Console, but should you want to interface your own application, they can also be sent using an OSC API.
 
-##### Sending a Message to a Client
-Command:
+### Sending a Message to a Client
+#### Command:
 ```
 /messaging/send_message
 ```
 
-Arguments:
+#### Arguments:
 ```
 "message_text" "bg_colour_hex" "message_group_id"
 ```
 
-##### Stopping an Active Message
-Command:
+Where:
+- message_text is the message you want to send to each client, this will be displayed on the scrolling ticker at the top of the screen.
+- bg_colour_hex is the background colour of the scrolling ticker in hexadecimal format.
+- message_group_id is the id of the message group we want to target the message at.
+
+### Stopping an Active Message
+#### Command:
 ```
 /messaging/stop_message
 ```
 
-Arguments:
+#### Arguments:
 ```
 "message_group_id"
 ```
+
+Where:
+- message_group_id is the id of the message group we want to tell to stop displaying any active messages.
 
 
 
