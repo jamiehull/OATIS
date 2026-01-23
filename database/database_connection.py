@@ -610,7 +610,7 @@ class DB:
         self.logger.debug("Querying the database")
         self.cursor.execute(f"SELECT * FROM {table_name} WHERE {condition1} = (?) AND {condition2} = (?)",(value1,value2,))
         row = self.cursor.fetchall()
-        self.logger.debug(f"Returned data:{row}")
+        #self.logger.debug(f"Returned data:{row}")
         return row
     
     def update_trigger_mapping(self, table_name, condition1, value1, condition2, value2, controller_id, gpi):

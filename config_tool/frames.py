@@ -119,7 +119,7 @@ class Image_Store(BaseFrameNew):
         if db_id != None:
             #Get all data from the db for the currently selected item
             item_data_list = self.db.get_current_row_data(self.table, self.id_column, db_id)[0]
-            self.logger.debug(f"Item data: {item_data_list}")
+            #self.logger.debug(f"Item data: {item_data_list}")
 
             #Extract the data from the item data list
             image_name = item_data_list[1]
