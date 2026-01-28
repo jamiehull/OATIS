@@ -317,7 +317,7 @@ class Input_Frame(ctk.CTkFrame):
           #Title row
           self.base_frame.rowconfigure(0, weight=0)
 
-          for i in range(1, self.number_of_rows):
+          for i in range(1, self.number_of_rows+1):
                self.base_frame.rowconfigure(i, weight=1)
 
           #Row index to start adding rows from
@@ -578,9 +578,9 @@ class Display_Builder_Base_Frame(ctk.CTkFrame):
 
           #Setup columns / rows for the frame
           self.rowconfigure(0, weight=0) 
-          self.rowconfigure(1, weight=1)
+          self.rowconfigure(1, weight=0)
           self.rowconfigure(2, weight=1)
-          self.rowconfigure(3, weight=1)
+          #self.rowconfigure(3, weight=1)
                
           self.columnconfigure(0, weight=2)
           self.columnconfigure(1, weight=1)
@@ -604,7 +604,7 @@ class Display_Builder_Base_Frame(ctk.CTkFrame):
           #self.widget_settings_frame.grid(column=1, row=1, columnspan=1, rowspan=3, sticky="nsew")
 
           self.widget_selector_frame = Widget_Selector(self)
-          self.widget_selector_frame.grid(column=0, row=2, columnspan=1, rowspan=2, sticky="nsew")
+          self.widget_selector_frame.grid(column=0, row=2, columnspan=1, rowspan=1, sticky="nsew")
 
           #Disable widget selector buttons by default
           self.widget_selector_frame.disable_buttons()
@@ -1200,12 +1200,15 @@ class Widget_Selector(ctk.CTkFrame):
           #Variables
           #self.total_columns = 2
 
+          #Widget Button Size
+          self.widget_button_size = 200
+
           #Make a scrollable frame to hold widget items
           self.widget_frame = ctk.CTkScrollableFrame(self, orientation="horizontal", label_text="Display Widgets", label_font=self.default_font, height=300)
           self.widget_frame.pack(side="top", expand=1, fill="both")
 
           #Setup columns / rows for the frame
-          self.widget_frame.rowconfigure(0, weight=1)    
+          self.widget_frame.rowconfigure(0, weight=0)    
 
           current_column = 0   
 
@@ -1223,7 +1226,7 @@ class Widget_Selector(ctk.CTkFrame):
                image = Image.open(image_path)
 
                #Resize the image to fit into button
-               resized_image: Image.Image = resize_image_keep_aspect(image, 290, 290)
+               resized_image: Image.Image = resize_image_keep_aspect(image, self.widget_button_size, self.widget_button_size)
 
                widget_image = ctk.CTkImage(light_image=resized_image, dark_image=resized_image, size=(resized_image.width,resized_image.height))
 
@@ -1233,8 +1236,8 @@ class Widget_Selector(ctk.CTkFrame):
                #Add the button
                btn = ctk.CTkButton(self.widget_frame, image=widget_image, text="", 
                                    font=self.default_font, 
-                                   width=290, 
-                                   height=290,
+                                   width=self.widget_button_size, 
+                                   height=self.widget_button_size,
                                    fg_color="black",
                                    command = (lambda current_widget_string = widget_string : self.__btn_cmd(current_widget_string)))
                btn.grid(column=current_column, row=0, sticky="ns", padx=5, pady=5)
@@ -1289,9 +1292,9 @@ class Display_Instance_Config_Base_Frame(ctk.CTkFrame):
           self.default_font = ctk.CTkFont(default_font, default_size)
 
           #Setup columns / rows for the frame
-          self.rowconfigure(0, weight=1) 
-          self.rowconfigure(0, weight=1)
-          self.rowconfigure(0, weight=1)
+          self.rowconfigure(0, weight=0) 
+          self.rowconfigure(1, weight=0)
+
                
           self.columnconfigure(0, weight=2)
           self.columnconfigure(1, weight=1)
@@ -1299,10 +1302,10 @@ class Display_Instance_Config_Base_Frame(ctk.CTkFrame):
           #Make the 4 frames
 
           self.display_preview_frame = Grid_Layout_Builder(self, None, self.raise_config_frame)
-          self.display_preview_frame.grid(column=0, row=0, columnspan=1, rowspan=1, sticky="nsew")
+          self.display_preview_frame.grid(column=0, row=0, columnspan=1, rowspan=1, sticky="new")
 
           self.instance_settings_frame = Display_Instance_Settings(self, self.show_display_template_preview)
-          self.instance_settings_frame.grid(column=1, row=0, columnspan=1, rowspan=1, sticky="nsew")
+          self.instance_settings_frame.grid(column=1, row=0, columnspan=1, rowspan=1, sticky="new")
 
           #self.widget_settings_frame = Widget_Settings(self)
           #self.widget_settings_frame.grid(column=0, row=1, columnspan=2, rowspan=1, sticky="nsew")
@@ -1368,7 +1371,7 @@ class Display_Instance_Config_Base_Frame(ctk.CTkFrame):
           self.logger.debug(f"Selected display surface widget string: {widget_string}")
 
           #Load the new frame and add to the config frames list
-          config_frame = get_config_frame(self, widget_string, self.db, display_surface_id)
+          config_frame : ctk.CTkFrame = get_config_frame(self, widget_string, self.db, display_surface_id)
           config_frame.grid(column=0, row=1, columnspan=2, rowspan=1, sticky="nsew")
           self.config_frames_dict[display_surface_id] = config_frame
 
