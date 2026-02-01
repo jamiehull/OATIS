@@ -22,6 +22,7 @@ def make_resized_text_object(text, text_colour, initial_text_size, max_width, ma
             
             #If it doesn't reduce the size and try again
             else:
+                print(f"Label Text width:{label_text_width}, display section width:{max_width}")
                 text_size = int(text_size - 1)
 
         return label_text

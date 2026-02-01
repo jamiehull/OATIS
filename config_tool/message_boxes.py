@@ -2,7 +2,7 @@ from tkinter import messagebox
 import logging
 
 def delete_warning(exception):
-    messagebox.showwarning("Warning", f"Cannot delete this item as it is in use. \nTechnical info:{exception}")
+    messagebox.showwarning("Warning", f"Cannot delete this item as it is in use.")
 
 def pin_modify_warning(failed_pin_list:list):
     messagebox.showwarning("Warning", f"Cannot modify input / output configuration for pins. \nThe following pins are configured as either an input or output trigger: {failed_pin_list}")
@@ -24,6 +24,12 @@ def cannot_modify_warning(exception):
 
 def initialised_program_exiting_message():
     messagebox.showinfo("Info", f"Database initialised, please restart config tool. This program will automatically exit on close of this message.")
+
+def unknown_error_message(error=None):
+    messagebox.showerror("Unknown Error", "An unexpected error has occured." ,detail = error)
+
+def connection_refused_warning():
+    messagebox.showwarning("Server Offline", "Config Tool cannot contact the server. \nPlease check it is running and the IP address has been set correctly.")
 
 
 def confirm_delete() -> bool: 

@@ -78,7 +78,7 @@ class Image_Store(BaseFrameNew):
 
         else:
             #Show a message box stating cannot save data
-            image_unchanged_warning()()
+            image_unchanged_warning()
 
     #Save input data to the database
     def __save_input_data(self, image_path):
@@ -255,14 +255,17 @@ class Image_Stacks(BaseFrameNew):
 
                             else:
                                 #Warn the user the item cannot be deleted to maintain database integrity
+                                self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                                 delete_warning(feedback)
 
                         else:
                             #Warn the user the item cannot be deleted to maintain database integrity
+                            self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                             delete_warning(feedback)
 
                     else:
                          #Warn the user the item cannot be deleted to maintain database integrity
+                         self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                          delete_warning("Image Stack in use by a widget instance.")
 
     #Save input data to the database
@@ -566,6 +569,7 @@ class Device_Config(BaseFrameNew):
         return db_id
         
     def __reload_device_display(self):
+        self.logger.info(f"Reload Display Template Button Pressed")
         try:
             #Get the devices ID
             device_id = self.get_device_id()
@@ -577,6 +581,8 @@ class Device_Config(BaseFrameNew):
                 #Only send a command to the server if it has an ip set
                 if settings_dict != False:
                         server_ip = (settings_dict["server_ip"])
+                        
+                        self.logger.info(f"Sending Reload Display Template Command to Device ID: {device_id}")
 
                         #Send the raise frame command to the server
                         self.tcp_client = TCP_Client()
@@ -586,9 +592,13 @@ class Device_Config(BaseFrameNew):
 
                 else:
                         self.logger.error(f"Server IP address not set, please set in config tool.")
+                        
+        except ConnectionRefusedError:
+            connection_refused_warning()
 
         except Exception as e:
             self.logger.error(f"Cannot send Reload Message to server: {e}")
+            unknown_error_message(e)
             
     def __identify_device(self, state:bool):
         try:
@@ -723,11 +733,12 @@ class Controller_Config(BaseFrameNew):
             #Confirm with the user they want to delete
             confirmation = confirm_delete()
             if confirmation == True:
-                #Check GPIO Pins are not in use by any input triggers
-                controller_references = self.db.get_1column_data("input_trigger_id", "input_triggers", "controller_id", in_focus_db_id)
+                #Check GPIO Pins are not in use by any input triggers or output triggers
+                controller_references_inputs = self.db.get_1column_data("input_trigger_id", "input_triggers", "controller_id", in_focus_db_id)
+                controller_references_outputs = self.db.get_1column_data("output_trigger_id", "output_triggers", "controller_id", in_focus_db_id)
 
                 #If no references, start deletion
-                if controller_references == []:
+                if (controller_references_inputs == []) and (controller_references_outputs == []):
                 
                     #Delete mappping Foreign Key references
                     feedback = self.db.delete_row("pin_modes", "controller_id", in_focus_db_id)
@@ -751,10 +762,12 @@ class Controller_Config(BaseFrameNew):
                         
                     else:
                         #Warn the user the item cannot be deleted to maintain database integrity
+                        self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                         delete_warning(feedback)
                 else:
                     #Warn the user the item cannot be deleted to maintain database integrity
-                    delete_warning(f"Cannot delete Controller, in use by input triggers:{controller_references}")
+                    self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
+                    delete_warning(f"Cannot delete Controller, in use by input triggers:{controller_references_inputs + controller_references_outputs}")
 
     #Save input data to the database
     def __save_input_data(self, controller_name, controller_location, controller_type, controller_port, pin_config_list):
@@ -1384,14 +1397,17 @@ class Input_Logics(BaseFrameNew):
 
                             else:
                                 #Warn the user the item cannot be deleted to maintain database integrity
+                                self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                                 delete_warning(feedback)
 
                         else:
                             #Warn the user the item cannot be deleted to maintain database integrity
+                            self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                             delete_warning(feedback)
 
                     else:
                          #Warn the user the item cannot be deleted to maintain database integrity
+                         self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                          delete_warning("Input Logic in use by a widget instance.")
 
     #Save input data to the database
@@ -1624,6 +1640,7 @@ class Output_Logics(BaseFrameNew):
                         self.update_tree()
                     else:
                          #Warn the user the item cannot be deleted to maintain database integrity
+                         self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                          delete_warning(feedback)
 
     #Save input data to the database

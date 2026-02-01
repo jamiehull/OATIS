@@ -160,6 +160,7 @@ class BaseFrameNew(ctk.CTkFrame):
                          self.update_tree()
                     else:
                          #Warn the user the item cannot be deleted to maintain database integrity
+                         self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                          delete_warning(feedback)
 
 

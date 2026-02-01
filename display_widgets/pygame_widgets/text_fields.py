@@ -60,6 +60,7 @@ class Title_Data(Widget):
             label_text = font.render(text, True, self.text_colour)
             label_text_width = label_text.get_width()
             if label_text_width >= (int(self.outline_width) - (2*self.text_x_pad)):
+                self.logger.debug(f"Label Text width:{label_text_width}, diplay section width:{self.indicator_width}")
                 text_size -= 1
             else:
                 break
@@ -139,8 +140,6 @@ class Static_Text(Widget):
         self.text_colour = widget_config_dict["text_colour"]
         self.text_size_mode = widget_config_dict["text_size_mode"]
         self.user_text_size = widget_config_dict["text_size"]
-        self.widget_xpad = 50
-        self.widget_ypad = 50
         self.logger.info("Done")
 
         #Store reference to the surface
@@ -154,6 +153,10 @@ class Static_Text(Widget):
         self.display_width = self.display_surface.get_width()
         self.display_height = self.display_surface.get_height()
         self.logger.debug(f"Static Text Display Surface Resolution:{self.display_width},{self.display_height}")
+
+        #Widget padding
+        self.widget_xpad = 0.1 * self.display_width
+        self.widget_ypad = 0.1 * self.display_height
 
         #If user has set text size to auto, we set an initial text size
         self.logger.debug(f"Text size mode set to {self.text_size_mode}")

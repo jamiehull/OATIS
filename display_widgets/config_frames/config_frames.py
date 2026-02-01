@@ -246,13 +246,27 @@ class Static_Text_Config(Config_Base_Frame):
         #Add the widgets to the grid
         self.grid_widgets()
 
-    def text_size_mode_callback(self, value):
-        if value == "Auto":
-            self.text_size.disable_entry()
-            self.text_size.set_value("Auto")
+        self.set_on_raise_callback(self.text_size_mode_callback)
+
+    def text_size_mode_callback(self, value=None):
+        """Called when the text size mode combobox value is changed"""
+        if value == None:
+            text_size_mode = self.text_size_mode.get_value()
+
+            if text_size_mode == "Auto":
+                self.text_size.disable_entry()
+
+            else:
+                self.text_size.enable_entry()
+                
         else:
-            self.text_size.enable_entry()
-            self.text_size.set_value("")
+            if value == "Auto":
+                self.text_size.disable_entry()
+                self.text_size.set_value("Auto")
+            else:
+                self.text_size.enable_entry()
+                self.text_size.set_value("")
+
 
 class Static_Image_Config(Config_Base_Frame):
     def __init__(self, parent, database_connection:DB, display_surface_id, widget_string:str):
