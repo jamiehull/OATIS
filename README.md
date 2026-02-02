@@ -1,4 +1,4 @@
-# OATIS V2 - On Air Tally Indicator System - IN DEVELOPMENT
+# OATIS V2 - On Air Tally Indicator System - IN TESTING
 
 <img width="1000" height="300" alt="logo" src="https://github.com/user-attachments/assets/ebfe4164-bf57-485f-ac5b-b7220c551612" />
 
@@ -28,7 +28,7 @@ Designed to operate in a server-client model, multiple displays can be centrally
   - Indicator Lamp
   - Static Text
   - Static Image
-  - Stacked Image (Changable via an OSC trigger) - Currently in Development
+  - Stacked Image (Changable via an OSC trigger)
   - Date-Logo-Location Top-Banner
   - More to be added in the future, suggestions are welcomed!
 - Multiple clocks can be displayed at once with the option to change the timezone depending on location.
