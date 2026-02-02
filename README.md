@@ -8,6 +8,8 @@ OATIS is a tally indicator system for use in Radio and TV that is platform agnos
 
 Designed to operate in a server-client model, multiple displays can be centrally managed using a lightweight server application and configuration tool.
 
+<img width="1680" height="1050" alt="Screenshot 2026-02-02 at 08 37 50" src="https://github.com/user-attachments/assets/4bb95cc2-4da6-47bb-a7e6-206f4c911fac" />
+
 ## Features
 ### Physical and Network triggers:
 - Support for physical GPI's and GPO's using the Arduino Uno R3 and Arduino Mega, giving you upto 52 inputs / outputs.
