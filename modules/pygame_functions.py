@@ -18,11 +18,11 @@ def make_resized_text_object(text, text_colour, initial_text_size, max_width, ma
 
             #Does it fit the specified bounds with top / bottom and left / right padding?
             if (label_text_width <= (int(max_width) - (2*x_pad))) and (label_text_height <= (int(max_height) - (2*y_pad))):
+                print(f"Label Text width:{label_text_width}, display section width:{max_width}")
                 text_fits_bounds = True
             
             #If it doesn't reduce the size and try again
             else:
-                print(f"Label Text width:{label_text_width}, display section width:{max_width}")
                 text_size = int(text_size - 1)
 
         return label_text

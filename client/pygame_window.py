@@ -16,7 +16,6 @@ from modules.osc import *
 from modules.matrix_operations import *
 import threading
 from time import sleep
-import json
 from PIL import ImageColor
 import time
 from os import path
@@ -62,13 +61,14 @@ class Window:
         self.bg_colour = (0,0,255) #Black
 
         #Initialises all pygame modules
+        self.logger.info(f"Initialising Pygame.")
         pygame.init()
 
         #Get the resolution of the display and store a reference
         self.screen_resolution = pygame.display.get_desktop_sizes()[0]
-        self.display_width = self.screen_resolution[0]
-        self.display_height = self.screen_resolution[1]
-        print(f"Display Resolution:{self.screen_resolution}")
+        self.display_width = 1280#self.screen_resolution[0]
+        self.display_height = 720#self.screen_resolution[1]
+        self.logger.info(f"Display Resolution:{self.screen_resolution}")
 
         #List of widgets to render on the surfaces
         self.widget_dict = {}
@@ -79,8 +79,8 @@ class Window:
         #Lock to make accessing the dict from multiple threads safe
         self.blit_dict_lock = threading.Lock()
 
-        #Create the Main Display Window Surface 
-        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.SCALED | pygame.FULLSCREEN | pygame.NOFRAME)
+        #Create the Main Display Window Surface  | pygame.FULLSCREEN | pygame.NOFRAME
+        self.display_surface = pygame.display.set_mode((self.display_width, self.display_height), pygame.SCALED)
 
         #Find the centre of the display
         self.horizontal_center = self.display_surface.get_width() / 2
@@ -92,6 +92,7 @@ class Window:
         self.stacked_image_surfaces_list = []
         
         #Do the setup Commands
+        self.logger.info(f"Running Setup Commands.")
         self.__setup()
 
         #State variables to signal to functions state of program
@@ -125,14 +126,14 @@ class Window:
         if event.type == pygame.KEYDOWN:
             #ESC - Keypress
             if event.key == K_ESCAPE:
-                self.logger.debug("Escape Key Pressed, shutting down application...")
+                self.logger.info("Escape Key Pressed, shutting down application...")
 
                 #Quit pygame
                 self.running = False
 
             #i - Keypress
             if event.key == K_i:
-                self.logger.debug("i Key Pressed, setting flag for ip configuration on next boot and shutting down application...")
+                self.logger.info("i Key Pressed, setting flag for IP configuration on next boot and shutting down application...")
 
                 #Open current settings file
                 self.settings_dict = open_json_file(self.settings_path)
@@ -182,7 +183,7 @@ class Window:
             self.display_surface.blit(ticker_display_section.surface, ticker_display_section.top_left_screen_coord)
             ticker_widget.render()
 
-            #flip() the display to put your work on screen
+            #flip() the display to refresh graphics
             pygame.display.flip()
 
             #limits FPS
@@ -202,7 +203,7 @@ class Window:
 
 #--------------------------------Display-rendering-Logic--------------------------------------------
 
-    def validate_layout_matrix(self, layout_matrix:list) -> bool:
+    def __validate_layout_matrix(self, layout_matrix:list) -> bool:
         """Validates an input layout matrix"""
         valid_matrix = True
         row_length = len(layout_matrix[0])
@@ -215,35 +216,40 @@ class Window:
         return valid_matrix
 
     def __add_surface_to_blit(self, display_section:Display_Section):
-        """Adds a surface to the blit list for copying to the main window"""
+        """Adds a surface to the blit dict for copying to the main window"""
+        self.logger.debug(f"Adding surface:{display_section.id} to blit dict.")
         self.blit_dict[display_section.id] = display_section
     
-    def __add_widget_to_render(self, display_surface_id:int, widget):
+    def __add_widget_to_render(self, display_surface_id:int, widget:Widget):
         """Adds a widget to the widget dict for rendering on a surface"""
+        self.logger.debug(f"Adding widget:{widget} to blit dict at display surface id:{display_surface_id}")
         self.widget_dict[display_surface_id] = widget
 
     def __render_diplay_template_file(self):
+        """Opens a display template file and renders it."""
         #Get the timestamp of the cached display template
-        self.logger.debug("******************Rendering Display Template******************")
+        self.logger.info("******************Rendering Display Template STARTED******************")
     
         #Open the display template
         template_dict = open_json_file(self.display_template_path)
         if template_dict != False:
             self.layout_matrix = template_dict["layout_matrix"]
             self.display_surfaces = template_dict["display_surfaces"]
-            self.build_layout_custom(self.layout_matrix, self.display_surfaces)
+            self.__build_layout_custom(self.layout_matrix, self.display_surfaces)
         else:
             self.logger.warning("Display template file not found, using default!")
             default_template_dict = open_json_file(self.default_display_template_path)
             self.layout_matrix = default_template_dict["layout_matrix"]
             self.display_surfaces = default_template_dict["display_surfaces"]
-            self.build_layout_custom(self.layout_matrix, self.display_surfaces)
+            self.__build_layout_custom(self.layout_matrix, self.display_surfaces)
+
+        self.logger.info("******************Rendering Display Template FINISHED******************")
             
-    def build_layout_custom(self, layout_matrix:int, display_surfaces_dict:dict):
+    def __build_layout_custom(self, layout_matrix:int, display_surfaces_dict:dict):
         """Builds a display layout from a layout matrix and display surface config."""
 
         #Check the layout matrix is valid
-        valid_matrix = self.validate_layout_matrix(layout_matrix)
+        valid_matrix = self.__validate_layout_matrix(layout_matrix)
 
         #If matrix is valid build the layout
         if valid_matrix == True:
@@ -313,7 +319,9 @@ class Window:
                 widget_config_dict = surface_config_dict["widget_config"]
 
                 #Add the widget to the surface and pass the widget it's config
-                self.add_widget_object_to_surface(widget_string, display_surface, display_section_id, widget_config_dict)
+                self.__add_widget_object_to_surface(widget_string, display_surface, display_section_id, widget_config_dict)
+
+                #-------------Additional config for widgets that have triggers-------------
 
                 #If a clock widget add the surface id to the list to allow the alarm to be triggered
                 if widget_string == "analogue_clock" or widget_string == "studio_clock" or widget_string == "digital_clock":
@@ -330,7 +338,8 @@ class Window:
         else:
             print("Cannot build layout, invalid layout matrix.")
 
-    def build_fullscreen_slates(self):
+    def __build_fullscreen_slates(self):
+        """Builds the fullscreen slates."""
         #Build the fullscreen logo slate
         self.surface_fullscreen_logo_slate = pygame.Surface((self.display_width, self.display_height), pygame.SRCALPHA, 32)
         self.display_section_fullscreen_logo_slate = Display_Section(-3, (0,0), self.display_width, self.display_height, self.surface_fullscreen_logo_slate)
@@ -345,7 +354,8 @@ class Window:
         self.fullscreen_identify_slate = Identify_Slate(self.surface_identify_slate)
         self.__add_widget_to_render(-4, self.fullscreen_identify_slate)
 
-    def build_ticker(self):
+    def __build_ticker(self):
+        """Builds the ticker surface and widget."""
         messaging_top_banner_height = self.display_height*0.15
         #Transparent surface
         self.surface_top_banner = pygame.Surface((self.display_width, messaging_top_banner_height), pygame.SRCALPHA, 32)
@@ -356,7 +366,7 @@ class Window:
         self.__add_widget_to_render(-2, self.top_banner_ticker)
 
     #Add new widgets here!
-    def add_widget_object_to_surface(self, widget_string, display_surface, display_surface_id, widget_config:dict):
+    def __add_widget_object_to_surface(self, widget_string, display_surface, display_surface_id, widget_config:dict):
         """Adds a widget object to a surface and configures it."""
         widget = None
 
@@ -408,13 +418,12 @@ class Window:
         self.__render_diplay_template_file()
 
         #Render fullscreen slates
-        self.build_fullscreen_slates()
+        self.__build_fullscreen_slates()
 
         #Render Ticker banner
-        self.build_ticker()
+        self.__build_ticker()
 
         #Start background Threads
-        self.logger.info("Starting Background Threads")
         self.__start_daemon_threads()
 
         #Map GUI handlers to allow GUI to update on recieved command
@@ -426,24 +435,27 @@ class Window:
         self.logger.info("Setup Done - Let's go!")
 
     def __start_daemon_threads(self):
+        self.logger.info("Starting Client Background Threads")
         self.server_heartbeat_thread = threading.Thread(target=self.__server_heartbeat, daemon=True)
         self.server_heartbeat_thread.start()
 
     def __stop_daemon_threads(self):
+        self.logger.info("Stopping Client Background Threads")
         self.reloading_display = True
 
     def __start_osc(self):
         #Start the server in a seperate thread
-        self.logger.debug("Starting OSC Server in background thread")
+        self.logger.info("Starting OSC Server in background thread")
         threading.Thread(target=self.osc.start_udp_osc_server, daemon=True).start()
         #threading.Thread(target=self.osc.start_tcp_osc_server, daemon=True).start()
 
     def __stop_osc(self):
-        self.logger.debug("Stopping OSC Server")
+        self.logger.info("Mapping OSC Handlers")
         self.osc.stop_udp_osc_server()
         #self.osc.stop_tcp_osc_server()
 
     def __map_gui_handlers(self):
+        self.logger.info("Stopping OSC Server")
         #Global Handlers
         self.osc.map_osc_handler('/client/control/signal_lights/', self.signal_light_handler)
         self.osc.map_osc_handler("/client/control/ticker", self.ticker_handler)
@@ -452,16 +464,17 @@ class Window:
         self.osc.map_osc_handler('/client/control/stacked_image', self.image_stack_handler)
 
     def __unmap_gui_handlers(self):
+        self.logger.info("Unmapping OSC Handlers")
         #Global Handlers
         self.osc.unmap_osc_handler('/client/control/signal_lights/', self.signal_light_handler)
         self.osc.unmap_osc_handler("/client/control/ticker", self.ticker_handler)
         self.osc.unmap_osc_handler('/client/control/reload_display_template', self.reload_display_handler)
-        self.osc.map_osc_handler('/client/control/stacked_image', self.image_stack_handler)
-        #self.osc.unmap_osc_handler('/client/control/frames', self.show_frame_handler)
-
+        #self.osc.unmap_osc_handler('/client/control/frames', self.show_frame_handler) -- Leave disabled to allow server control
+        self.osc.unmap_osc_handler('/client/control/stacked_image', self.image_stack_handler)
+        
     #Reads ip settings from the settings file and applies them
     def __read_and_set_ip_settings(self):
-        self.logger.info("Setting Ip settings from File")
+        self.logger.info("Setting Client Ip settings from file")
 
         #Read Settings file
         settings_dict = open_json_file(self.settings_path)
@@ -473,74 +486,64 @@ class Window:
             self.logger.info(f"Ip Settings set, Client IP:{self.client_ip_address}, Server IP:{self.server_ip_address}")
 
         else:
-            self.logger.info("Settings file corrupt or missing!")
+            self.logger.warning("Settings file corrupt or missing!")
 
-        #Writes recieved display template to JSON file
-    
-    def write_display_template_to_file(self, display_config):
-        try:
-            self.logger.debug(f"Writing display template to file.")
-            write_dict_to_file(display_config, self.display_template_path)
-            self.logger.debug(f"Display Template Saved")
+    def __get_display_template_timestamps(self):
+        #Get the timestamp of the cached display template
+        cached_template_dict = open_json_file(self.display_template_path)
 
-            self.logger.info("JSON Display Template Recieved From Server and stored on device local cache.")
+        if cached_template_dict != False:
+            #Extract the timestamp from the display_template
+            display_template_timestamp = cached_template_dict["display_template_timestamp"]
+            display_instance_timestamp = cached_template_dict["display_instance_timestamp"]
 
-        except Exception as e:
-            self.logger.error(f"Error Parsing recieved JSON: {e}")
+        #If there is no existing display template use a timestamp of 0 to signal this
+        else:
+            display_template_timestamp = "0"
+            display_instance_timestamp = "0"
 
-    def __write_image_stack_dict_to_file(self, image_stack_dict):
-        try:
-            self.logger.debug(f"Writing Image Stack Dict to file.")
-            write_dict_to_file(image_stack_dict, self.image_stacks_path)
-            self.logger.debug(f"Image Stack Dict Saved")
-
-            self.logger.info("JSON Image Stack info Recieved From Server and stored on device local cache.")
-
-        except Exception as e:
-            self.logger.error(f"Error Parsing recieved JSON: {e}")
-
+        return display_template_timestamp, display_instance_timestamp
 #----------------TCP Network Commands-----------------------
-    #----------Requestors-retrieving data from the server-USES TCP FILE TRANSFER------------------------
+    #----------Requestors - retrieving data from the server - USES TCP FILE TRANSFER------------------------
 
-    #Requests logo image file from server
-    def __update_image_files(self, image_id_list:list):
+    def __request_new_image_files(self, image_id_list:list):
+        """Requests the new image files from the server and stores them on the client device."""
         try:
             #Clear all images from the image directory
-            self.logger.debug("Deleting all image files")
-            for filename in os.listdir(self.images_path):
-                file_path = os.path.join(self.images_path, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-                    self.logger.debug(f"Deleted: {filename}")
+            self.logger.debug("Deleting old image files")
+            delete_status = delete_all_files_in_directory(self.images_path)
 
-            #Request the new logo file
-            self.logger.debug(f"Requesting new image files. {image_id_list}")
-            tcp_client = TCP_Client()
+            if delete_status == True:
+                self.logger.debug(f"Requesting new image files. {image_id_list}")
+            
+                #Build the Message and send
+                tcp_client = TCP_Client()
+                command = "/assets/images/get"
 
-            #Build the Message and send
-            command = "/assets/images/get"
-            for image_id in image_id_list:
-                arguments = {"image_id":image_id}
-                message = tcp_client.build_tcp_message(command, arguments)
-                image_blob = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message, True)
+                for image_id in image_id_list:
+                    arguments = {"image_id":image_id}
+                    message = tcp_client.build_tcp_message(command, arguments)
 
-                #Make the filename from the image_id
-                filename = f"{image_id}.png"
-                image_save_path = os.path.join(self.images_path, filename)
+                    if message != False:
+                        image_blob = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message, True)
 
-                self.logger.debug("Converting Recieved logo file from bytes to png.")
-                convert_from_blob(image_blob, image_save_path)
-                self.logger.debug(f"New image file saved locally on device as {filename} in {image_save_path}.")
+                        #Make the filename from the image_id
+                        filename = f"{image_id}.png"
+                        image_save_path = os.path.join(self.images_path, filename)
+
+                        self.logger.debug("Converting Recieved image file from bytes to png file.")
+                        convert_from_blob(image_blob, image_save_path)
 
         except Exception as e:
-            self.logger.error(f"Unable to get new logo file from server, reason: {e} ")
+            self.logger.error(f"Error requesting new image files: {e}")
 
-    #Requests the device configuration from the server
     def __request_device_config(self):
+        """Requests the device configuration from the server"""
         self.logger.debug(f"Requesting Device Configuration from Server: {self.server_ip_address}")
+
         try:
-            tcp_client = TCP_Client()
             #Build the Message and send
+            tcp_client = TCP_Client()
             command = "/config/device/get"
             arguments = {
                         "client_ip" : self.client_ip_address
@@ -548,174 +551,141 @@ class Window:
             data = None
 
             message = tcp_client.build_tcp_message(command, arguments, data)
-            output_command, output_arguments, output_data  = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
 
-            #Store the recieved information locally
-            self.device_information_dict = output_arguments
+            if message != False:
+                output_command, output_arguments, output_data  = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
 
-            #Check server reports ok status
-            request_status = output_arguments["status"]
-            
-            if request_status == "OK":
-                #Get the location from the request response
-                device_location = output_arguments["device_location"]
+                #Check server reports OK status
+                request_status = output_arguments["status"]
+                
+                if request_status == "OK":
+                    #Store the recieved information locally
+                    self.device_information_dict = output_arguments
 
-                #Update the identify slate
-                device_information_widget : Identify_Slate = self.widget_dict[-4]
-                self.logger.debug(f"Device_dict: {self.device_information_dict}")
-                device_information_widget.set_information(self.device_information_dict)
-                device_information_widget.set_location(device_location)
+                    #Get the location from the request response
+                    device_location = output_arguments["device_location"]
 
-                #Check the display template for top_banner widgets
-                top_banner_surface_id_list = []
-                display_template_dict : dict = open_json_file(self.display_template_path)
-                display_surfaces_dict :dict  = display_template_dict.get("display_surfaces")
+                    #Update the identify slate
+                    self.update_identify_screen()
 
-                for key in display_surfaces_dict:
-                    widget_config_dict : dict = display_surfaces_dict.get(key)
-                    if widget_config_dict.get("widget_string") == "top_banner":
-                        top_banner_surface_id_list.append(int(key))
+                    #Update top_banner locations
+                    self.update_top_banner_location()
 
-                #Update the location on all top_banners
-                for surface_id in top_banner_surface_id_list:
-                    top_banner : Logo_Date_Location_Top_Banner = self.widget_dict[surface_id]
-                    top_banner.set_location(device_location)
-
-            else:
-                self.logger.error(f"Server returned invalid status: {request_status}")
-
-        except (ConnectionRefusedError, TimeoutError) as e:
-            self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+                else:
+                    self.logger.error(f"Server returned invalid status: {request_status}")
 
         except Exception as e:
-            self.logger.error(f"Cannot connect to server: {e}")
+            self.logger.error(f"Error requesting device configuration: {e}")
 
-    #Requests the display template from the server
+    def __get_image_ids_from_display_template(self, display_surface_config_dict:dict):
+        """Retrieves all image_ids from the display template, returning a list of image_ids and an image stack dictionary."""
+        #Make a new dictionary for storing image_stack info
+        image_stack_dict : dict = {"image_stack_id_dict":{}}
+
+        #Make a new list for storing image_id's to request from the server
+        image_id_request_list : list= []
+
+        #Analyse each display surface for image widgets
+        for display_surface_id in display_surface_config_dict:
+            display_surface_config = display_surface_config_dict.get(display_surface_id)
+            widget_string = display_surface_config["widget_string"]
+
+            if (widget_string in image_widget_strings_list):
+                widget_config : dict  = display_surface_config["widget_config"]
+                image_id = widget_config.get("image_id")
+
+                #Add each image_id to the list if not already in it
+                if (image_id not in image_id_request_list):
+                    image_id_request_list.append(image_id)
+
+            elif widget_string == "stacked_image":
+                widget_config : dict  = display_surface_config["widget_config"]
+
+                #Get the image_stack_id
+                image_stack_id = widget_config.get("image_stack_id")
+
+                #Ask the server for image_ids associated with this image_stack
+                stack_image_ids_list = self.__request_image_stack_image_ids(image_stack_id)
+
+                #If request was succesful
+                if stack_image_ids_list != False:
+
+                    #Build image Stack JSON File
+                    image_stack_id_dict : dict = image_stack_dict.get("image_stack_id_dict")
+
+                    if image_stack_id not in image_stack_id_dict:
+                        image_stack_id_dict[image_stack_id] = ({"image_ids_list":stack_image_ids_list, "display_surfaces_list":[display_surface_id]})
+
+                    else:
+                        image_stack_config : dict = image_stack_id_dict.get(image_stack_id)
+                        display_surfaces_list : list = image_stack_config.get("display_surfaces_list")
+                        display_surfaces_list.append(display_surface_id)
+
+                    for image_id in stack_image_ids_list:
+
+                        #Add each image_id to the request list if not already in it
+                        if (image_id not in image_id_request_list):
+                            image_id_request_list.append(image_id)
+
+        return image_id_request_list, image_stack_dict
+
     def __request_display_template(self):
+        """Requests the display template from the server"""
         try:
-            #Get the timestamp of the cached display template
-            cached_template_dict = open_json_file(self.display_template_path)
-
-            if cached_template_dict != False:
-                #Extract the timestamp from the display_template
-                display_template_timestamp = cached_template_dict["display_template_timestamp"]
-                display_instance_timestamp = cached_template_dict["display_instance_timestamp"]
-
-            #If there is no existing display template use a timestamp of 0 to signal this
-            else:
-                display_template_timestamp = "0"
-                display_instance_timestamp = "0"
+            display_template_timestamp, display_instance_timestamp = self.__get_display_template_timestamps()
 
             #Request a new display template from the server
             tcp_client = TCP_Client()
             message = tcp_client.build_tcp_message("/config/display_template/get", {"display_template_timestamp":display_template_timestamp, "display_instance_timestamp":display_instance_timestamp, "client_ip":self.client_ip_address})
-            command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
-            self.logger.debug(f"Data recieved from server:")
-            self.logger.debug(f"Command:{command}")
-            self.logger.debug(f"Arguments:{arguments}")
-            self.logger.debug(f"Data:{data}")
+            if message != False:
+                command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
 
-            #Check if the request was successful
-            request_status = arguments["status"]
+                #Check if the request was successful
+                request_status = arguments["status"]
 
-            if request_status == "OK":
-                #Check if local display template matches server
-                display_template_match_status = arguments["display_template_current"]
+                if request_status == "OK":
+                    #Check if local display template matches server
+                    display_template_match_status = arguments["display_template_current"]
 
-                if display_template_match_status == True:
-                    self.logger.debug(f"Cached Display template matches the one held on the server")
+                    if display_template_match_status != True:
+                        self.logger.debug("Updating stored Display Template.")
+                        write_dict_to_file(arguments, self.display_template_path)
 
+                        #Retrieve any image_id's from the display template and get these images from the server
+                        display_surface_config_dict : dict = arguments["display_surfaces"]
+
+                        image_id_request_list, image_stack_dict = self.__get_image_ids_from_display_template(display_surface_config_dict)
+
+                        #Write image_stack_ids and associated image_ids to a file                    
+                        write_dict_to_file(image_stack_dict, self.image_stacks_path)
+
+                        #Get all required image files from server
+                        self.__request_new_image_files(image_id_request_list)
+                        
+                    else:
+                        self.logger.debug(f"Cached Display template matches the one held on the server.")
                 else:
-                    self.logger.debug("Commiting Recieved Display Template to file")
-                    self.write_display_template_to_file(arguments)
-
-                    #Retrieve any image_id's from the display template and get these images from the server
-                    self.image_id_request_list = []
-                    #Make a new dictionary for storing image_stack info
-                    image_stack_dict = {"image_stack_id_dict":{}}
-
-                    display_surface_config_dict = arguments["display_surfaces"]
-
-                    for display_surface_id in display_surface_config_dict:
-                        display_surface_config = display_surface_config_dict.get(display_surface_id)
-                        self.logger.debug(f"Display Surface Config Dict: {display_surface_config}")
-                        widget_string = display_surface_config["widget_string"]
-
-                        if (widget_string in image_widget_strings_list):
-                            widget_config : dict  = display_surface_config["widget_config"]
-                            image_id = widget_config.get("image_id")
-
-                            #Add each image_id to the list if not already in it
-                            if (image_id not in self.image_id_request_list):
-                                self.image_id_request_list.append(image_id)
-
-                        elif widget_string == "stacked_image":
-                            widget_config : dict  = display_surface_config["widget_config"]
-
-                            #Get the image_stack_id
-                            image_stack_id = widget_config.get("image_stack_id")
-
-                            #Ask the server for image_ids associated with this image_stack
-                            stack_image_ids_list = self.__request_image_stack_image_ids(image_stack_id)
-
-                            #If request was succesful
-                            if stack_image_ids_list != False:
-                                #----------------------------------------
-                                #Build image Stack JSON File
-                                image_stack_id_dict = image_stack_dict.get("image_stack_id_dict")
-
-                                if image_stack_id not in image_stack_id_dict:
-                                    image_stack_id_dict[image_stack_id] = ({"image_ids_list":stack_image_ids_list, "display_surfaces_list":[display_surface_id]})
-
-                                else:
-                                    image_stack_config : dict = image_stack_id_dict.get(image_stack_id)
-                                    display_surfaces_list : list = image_stack_config.get("display_surfaces_list")
-                                    display_surfaces_list.append(display_surface_id)
-                                
-                                #----------------------------------------
-
-                                for image_id in stack_image_ids_list:
-
-                                    #Add each image_id to the list if not already in it
-                                    if (image_id not in self.image_id_request_list):
-                                        self.image_id_request_list.append(image_id)
-
-                    #Write image_stack_ids and associated image_ids to a file                    
-                    self.__write_image_stack_dict_to_file(image_stack_dict)
-
-                    #Get all required image files from server
-                    self.__update_image_files(self.image_id_request_list)
-            else:
-                self.logger.error(f"Server returned invalid status: {request_status}")
-
-        except ConnectionRefusedError as e:
-            self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+                    self.logger.error(f"Server returned invalid status: {request_status}")
 
         except Exception as e:
-            self.logger.error(f"Cannot connect to server: {e}")
-
+            self.logger.error(f"Error requesting display template: {e}")
+        
     #Requests the image_ids associated with an image_stack_id
     def __request_image_stack_image_ids(self, image_stack_id) -> list[int]:
         """Requests the image_ids in an image stack, returns a list of image_ids if successful, false if not."""
         try:
             tcp_client = TCP_Client()
             message = tcp_client.build_tcp_message("/config/image_stacks/get_image_ids", {"image_stack_id":image_stack_id})
-            command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
-            self.logger.debug(f"Data recieved from server:")
-            self.logger.debug(f"Command:{command}")
-            self.logger.debug(f"Arguments:{arguments}")
-            self.logger.debug(f"Data:{data}")
+
+            if message != False:
+                command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
 
             image_ids_list = arguments["image_ids_list"]
 
             return image_ids_list
 
-        except (ConnectionRefusedError, TimeoutError) as e:
-            self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
-            return False
-
         except Exception as e:
-            self.logger.error(f"Cannot connect to server: {e}")
+            self.logger.error(f"Error requesting image stack id's: {e}")
             return False
 
     #----------Heartbeat------------------------
@@ -723,31 +693,29 @@ class Window:
     def __server_heartbeat(self):
         sleep(3)
         while self.reloading_display == False:
+
             #Default wait time until a connection is made
             self.wait_time = 5
+
             try:
                 #Send a heartbeat message to the server
                 tcp_client = TCP_Client()
                 message = tcp_client.build_tcp_message("heartbeat", {"client_ip":self.client_ip_address}, None)
-                command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
+                if message != False:
+                    command, arguments, data = tcp_client.tcp_send(self.server_ip_address, self.server_tcp_port, message)
 
-                status = arguments["status"]
-                timestamp = arguments["timestamp"]
+                    status = arguments["status"]
+                    
+                    if status == "OK":
+                        timestamp = arguments["timestamp"]
+                        self.logger.debug(f"Server last seen at: {timestamp}")
+                        self.alarm_indicator_off()
+                        self.wait_time = 60
 
-                if status == "OK":
-                    self.logger.debug(f"Server last seen at: {timestamp}")
-                    self.alarm_indicator_off()
-                    self.wait_time = 60
-
-                else:
-                    self.logger.warning("Server Offline")
-                    self.alarm_indicator_on()
-                    self.wait_time = 5
-
-            except ConnectionRefusedError as e:
-                self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
-                self.alarm_indicator_on()
-                self.wait_time = 5
+                    else:
+                        self.logger.warning("Server Offline")
+                        self.alarm_indicator_on()
+                        self.wait_time = 5
 
             except Exception as e:
                 self.logger.error(f"Cannot connect to server: {e}")
@@ -757,6 +725,7 @@ class Window:
             sleep(self.wait_time)
             
 #----------------------Handlers-------------------------------------
+
     def image_stack_handler(self, address, *args):
         """Handles an incoming OSC command to change the image shown in an image stack"""
         try:
@@ -796,41 +765,47 @@ class Window:
             
     def signal_light_handler(self, address, *args):
         """Handles an incoming OSC command to change the state of an indicator light"""
-        display_surface_id = args[0]
-        state = args[1]
-        print(f"Incoming Data: Indicator Display Surface ID:{display_surface_id}, State:{state}")
+        try:
+            display_surface_id = args[0]
+            state = args[1]
+            self.logger.info(f"Incoming Data: Indicator Display Surface ID:{display_surface_id}, State:{state}")
 
-        #Check the surface id is valid
-        if display_surface_id in self.indicator_surfaces_list:
-            #Get the indicator widget
-            indicator_widget : Indicator_Lamp = self.widget_dict.get(display_surface_id)
-            if state == True:
-                indicator_widget.trigger_indicator_on()
-                print("Indicator On")
-            elif state == False:
-                indicator_widget.trigger_indicator_off()
-                print("Indicator Off")
-            else:
-                self.logger.error(f"Error triggering signal light, invalid arguments {args}")
+            #Check the surface id is valid
+            if display_surface_id in self.indicator_surfaces_list:
+                #Get the indicator widget
+                indicator_widget : Indicator_Lamp = self.widget_dict.get(display_surface_id)
+                if state == True:
+                    indicator_widget.trigger_indicator_on()
+                elif state == False:
+                    indicator_widget.trigger_indicator_off()
+                else:
+                    self.logger.error(f"Error triggering signal light, invalid arguments {args}")
+
+        except Exception as e:
+            self.logger.error(f"Error triggering signal light: {e}")
 
     def ticker_handler(self, address, *args):
-        state = args[0]
+        try:
+            state = args[0]
 
-        self.logger.debug(f"Incoming Data:{address}, {args}")
-        ticker_widget : Ticker_Banner = self.widget_dict[-2]
-        
-        if state == True:
-            text= args[1]
-            bg_colour_hex = args[2]
-            bg_colour_rgb = ImageColor.getcolor(bg_colour_hex, "RGB")
-
-            self.logger.debug("Ticker On")
-            ticker_widget.set_ticker_text(text, bg_colour_rgb)
-            ticker_widget.ticker_on()
+            self.logger.debug(f"Incoming Data:{address}, {args}")
+            ticker_widget : Ticker_Banner = self.widget_dict[-2]
             
-        else:
-            self.logger.debug("Ticker Off")
-            ticker_widget.ticker_off()
+            if state == True:
+                text= args[1]
+                bg_colour_hex = args[2]
+                bg_colour_rgb = ImageColor.getcolor(bg_colour_hex, "RGB")
+
+                self.logger.debug("Ticker On")
+                ticker_widget.set_ticker_text(text, bg_colour_rgb)
+                ticker_widget.ticker_on()
+                
+            else:
+                self.logger.debug("Ticker Off")
+                ticker_widget.ticker_off()
+
+        except Exception as e:
+            self.logger.error(f"Error triggering Ticker: {e}")
 
     def reload_display_handler(self, address, *args):
         self.logger.info("***************Reloading Display***************")
@@ -868,6 +843,9 @@ class Window:
             #Request config info to populate identify frame widgets
             self.__request_device_config()
 
+            #Set reloading flag to false
+            self.reloading_display = False
+
             #Start GUI background Threads
             self.logger.info("Starting GUI Background Threads")
             self.__start_daemon_threads()
@@ -880,29 +858,21 @@ class Window:
 
             self.logger.info("Reloaded Display Successfully")
 
-            self.logger.debug(f"Blit Dict: {self.blit_dict}")
-            self.logger.debug(f"Widget Dict: {self.blit_dict}")
-
     def show_frame_handler(self, address, *args):
         self.logger.info(f"***************Raising Frame***************")
-        if args[0] == "identify":
-            self.show_frame(1)
-        elif args[0] == "OATIS":
-            self.show_frame(2)
-        elif args[0] == "logo":
-            self.show_frame(0)
+        try:
+            if args[0] == "identify":
+                self.show_frame(1)
+            elif args[0] == "OATIS":
+                self.show_frame(2)
+            elif args[0] == "logo":
+                self.show_frame(0)
+        except Exception as e:
+            self.logger.error(f"Error raising frame: {e}")
 
-    def alarm_indicator_on(self):
-        for surface_id in self.clock_widget_surfaces_list:
-            clock_widget : Clock = self.widget_dict[surface_id]
-            clock_widget.alarm_indicator_flash_enable()
+#----------------------GUI Modifiers-------------------------------------
 
-    def alarm_indicator_off(self):
-        for surface_id in self.clock_widget_surfaces_list:
-            clock_widget : Clock = self.widget_dict[surface_id]
-            clock_widget.alarm_indicator_flash_disable()
-
-    #Raises a stacked frame to the top visible layer
+  #Raises a stacked frame to the top visible layer
     def show_frame(self, frame_number):
         """Raise a display surface into view, Frame 0: Logo Frame, Frame 1:Device Information, Frame 2: OATIS"""
         #Logo Slate
@@ -933,7 +903,43 @@ class Window:
             self.logger.debug(f"Logo Slate State:{logo_slate_widget.active}")
             self.logger.debug(f"Identify Slate State:{identify_slate_widget.active}")
 
-        
+    def alarm_indicator_on(self):
+        for surface_id in self.clock_widget_surfaces_list:
+            clock_widget : Clock = self.widget_dict[surface_id]
+            clock_widget.alarm_indicator_flash_enable()
+
+    def alarm_indicator_off(self):
+        for surface_id in self.clock_widget_surfaces_list:
+            clock_widget : Clock = self.widget_dict[surface_id]
+            clock_widget.alarm_indicator_flash_disable()
+
+    def update_top_banner_location(self):
+        """Updates the location field for any top banner widgets."""
+        device_location = self.device_information_dict.get("device_location")
+
+        #Check the display template for top_banner widgets
+        top_banner_surface_id_list = []
+        display_template_dict : dict = open_json_file(self.display_template_path)
+        display_surfaces_dict :dict  = display_template_dict.get("display_surfaces")
+
+        for key in display_surfaces_dict:
+            widget_config_dict : dict = display_surfaces_dict.get(key)
+            if widget_config_dict.get("widget_string") == "top_banner":
+                top_banner_surface_id_list.append(int(key))
+
+        #Update the location on all top_banners
+        for surface_id in top_banner_surface_id_list:
+            top_banner : Logo_Date_Location_Top_Banner = self.widget_dict[surface_id]
+            top_banner.set_location(device_location)
+
+    def update_identify_screen(self):
+        """Updates the identify screen with the current device information dict data."""
+
+        self.logger.debug(f"Updating Identify Screen with data: {self.device_information_dict}")
+        device_information_widget : Identify_Slate = self.widget_dict[-4]
+        device_information_widget.set_information(self.device_information_dict)
+
+  
 
         
         

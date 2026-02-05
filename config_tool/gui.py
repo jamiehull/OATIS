@@ -42,7 +42,7 @@ class GUI:
         #If the database is invalid, prompt to initialise the database before proceeding
         else:
             self.logger.error("Database Invalid or corrupt")
-            answer =  messagebox.askyesno("Database Error", "The database is either not initialised or corrupt. Would you like me to re-initialise the database? Please note this will clear all data?")
+            answer =  messagebox.askyesno("Database Error", "The database is either not initialised or corrupt. Would you like to re-initialise the database? Please note this will clear all data?")
             if answer == True:
                 #Initialise the database
                 self.db.initialise_database()

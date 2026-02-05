@@ -12,51 +12,69 @@ class TCP_Client:
 
     def tcp_send(self, ip, port, message, raw_response:bool=False):
         """Sends a message via TCP, If raw response is true, we return the bytes as they were sent, if false we extract the command arguments and data."""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            #Set timeout for response
-            sock.settimeout(0.5)
-            #Connect to Server
-            self.logger.debug(f"Establishing connection to server at: {ip}:{port}")
-            sock.connect((ip, port))
-            self.logger.debug("Connection Established")
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                #Set timeout for response
+                sock.settimeout(0.5)
+                #Connect to Server
+                self.logger.debug(f"Establishing connection to server at: {ip}:{port}")
+                sock.connect((ip, port))
+                self.logger.debug("Connection Established")
 
-            #Send Data
-            self.logger.debug("Sending data to server...")
-            sock.sendall(bytes(message, 'utf-8'))
+                #Send Data
+                self.logger.debug("Sending data to server...")
+                sock.sendall(bytes(message, 'utf-8'))
 
-            #Recieve the first 4 bytes of the message to read it's length
-            self.logger.debug("Recieving message length preamble from server...")
-            message_length_encoded = self.recvall(sock, 4)
+                #Recieve the first 4 bytes of the message to read it's length
+                self.logger.debug("Recieving message length preamble from server...")
+                message_length_encoded = self.recvall(sock, 4)
 
-            #Decode the length
-            self.logger.debug("Decoding message length preamble...")
-            message_length_decoded = struct.unpack('>I', message_length_encoded)[0]
-            self.logger.debug(f"Message of length:{message_length_decoded} to be recieved.")
+                #Decode the length
+                self.logger.debug("Decoding message length preamble...")
+                message_length_decoded = struct.unpack('>I', message_length_encoded)[0]
+                self.logger.debug(f"Message of length:{message_length_decoded} to be recieved.")
 
-            #Recieve all data now we know the length of the message - stored as a byte array
-            self.logger.debug("Recieving data from server...")
-            message_bytearray : bytearray = self.recvall(sock, message_length_decoded)
+                #Recieve all data now we know the length of the message - stored as a byte array
+                self.logger.debug("Recieving data from server...")
+                message_bytearray : bytearray = self.recvall(sock, message_length_decoded)
 
-            #Encode the byte-array to bytes
-            self.logger.debug("Encoding recieved bytearray to bytes...")
-            message_bytes = bytes(message_bytearray)
+                #Encode the byte-array to bytes
+                self.logger.debug("Encoding recieved bytearray to bytes...")
+                message_bytes = bytes(message_bytearray)
 
-            if raw_response == True:
-                return message_bytes
-            
-            else:
-                #Decode the bytes to a string
-                self.logger.debug("Decoding bytes to a string message...")
-                decoded_message = self.decode_data(message_bytes)
+                if raw_response == True:
+                    return message_bytes
+                
+                else:
+                    #Decode the bytes to a string
+                    self.logger.debug("Decoding bytes to a string message...")
+                    decoded_message = self.decode_data(message_bytes)
 
-                #Read the response
-                message_dict = json.loads(decoded_message)
+                    #Read the response
+                    message_dict = json.loads(decoded_message)
 
-                command = message_dict["command"]
-                arguments = message_dict["arguments"]
-                data = message_dict["data"]
+                    command = message_dict["command"]
+                    arguments = message_dict["arguments"]
+                    data = message_dict["data"]
 
-                return command, arguments, data
+                    return command, arguments, data
+
+        except ConnectionRefusedError as e:
+            self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+            command = "error"
+            arguments = {"status" : "ERROR"}
+            data = None
+
+            return command, arguments, data
+
+        except Exception as e:
+            self.logger.error(f"Cannot connect to server: {e}")
+            command = "error"
+            arguments = {"status" : "ERROR"}
+            data = None
+
+            return command, arguments, data
+                
 
     def recvall(self, sock, n):
         # Helper function to recv n bytes or return None if EOF is hit
@@ -72,16 +90,27 @@ class TCP_Client:
         return recieved_data.decode("utf-8")
     
     #Builds a JSON message using a set format- data and args are optional
-    def build_tcp_message(self, command:str, arguments:dict=None, data:list=None) -> str:
-        json_dictionary = {}
-        json_dictionary["command"] = command
-        json_dictionary["arguments"] = arguments
-        json_dictionary["data"] = data
+    def build_tcp_message(self, command:str, arguments:dict=None, data:list=None):
+        """Converts a command, dictionary of arguments and a list of data into a set format for transmission. Returns False if conversion fails."""
+        try:
+            json_dictionary = {}
+            json_dictionary["command"] = command
+            json_dictionary["arguments"] = arguments
+            json_dictionary["data"] = data
+            
+            #Convert the Dictionary to JSON
+            json_message = json.dumps(json_dictionary, indent=4)
         
-        #Convert the Dictionary to JSON
-        json_message = json.dumps(json_dictionary)
+        except TypeError as e:
+            self.logger.error(f"Cannot build TCP message, invalid input data specified: {e}")
+            json_message = False
 
-        return json_message
+        except Exception as e:
+            self.logger.error(f"Cannot build TCP message: {e}")
+            json_message = False
+
+        finally:
+            return json_message
     
     
 #Builds a JSON response message using a set format- data and args are optional

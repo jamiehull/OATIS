@@ -17,7 +17,6 @@ class Launcher:
         self.settings_dict = {}
         self.settings_path = "client/data/settings.json"
 
-
         settings_dict : dict = open_json_file(self.settings_path)
         if settings_dict == False:
             logger.warning("No settings file, entering setup script...")
@@ -42,23 +41,6 @@ class Launcher:
     def ip_config(self):
         """Creates the settings file."""
         settings_window = Settings(self.settings_path)
-
-    def get_client_ip_input(self):
-        self.valid = False
-        while self.valid == False:
-            #Ask user to select an IP
-            print("Please select an interface ip by inputting the number associated with it:")
-            selection = input()
-            try:
-                selection_int = int(selection)
-                #Set client IP based on selection
-                if selection_int in range (0, self.interface_list_length):
-                    self.client_ip = self.interface_ip_list[selection_int]
-                    self.valid = True
-                else:
-                    print("IP address invalid, please select again:")
-            except:
-                print("IP address invalid, please select again:")
 
     def start_app(self):
         #Create an instance of the GUI

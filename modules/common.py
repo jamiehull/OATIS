@@ -4,6 +4,7 @@ import netifaces
 import ipaddress
 from PIL import ImageFile
 from PIL import ImageColor
+import os
 
 #Setup Logging
 logger = logging.getLogger(__name__)
@@ -27,21 +28,28 @@ def get_machine_ip() -> list:
     return ip_list
 
 #JSON Functions
-def write_dict_to_file(dict, file_path):
-    "Writes a python dictionary to JSON file."
-    #Convert Dictionary to JSON and save to file
-    logger.debug(f"Commiting dict to file...")
-    file = open(file_path, "w")
-    json.dump(dict, file, indent=4)
-    file.close()
-    logger.debug(f"JSON File Saved")
+def write_dict_to_file(dict, file_path) -> bool:
+    "Writes a python dictionary to JSON file, returns True if successful, False if not."
+    try:
+        with open(file_path, "w") as file:
+            #Convert Dictionary to JSON and save to file
+            json.dump(dict, file, indent=4)
+            logger.info(f"JSON File Saved to {file_path}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Unable to write dictionary to file: {e}")
+        return False
+
 
 def open_json_file(path) -> dict:
     """Returns Dictionary if the JSON File exists, Returns False if no JSON file Found."""
     try:
-        file = open(path, "r")
-        json_dict : dict = json.load(file)
-        logger.info(f"JSON file opened")
+        with open(path, "r") as file:
+            json_dict : dict = json.load(file)
+            logger.info(f"JSON file opened")
+            
         return json_dict
     
     except Exception as e:
@@ -49,10 +57,19 @@ def open_json_file(path) -> dict:
         return False
     
 #Converts a binary image to a jpg file
-def convert_from_blob(blob_image:bytes, path_to_save_file:str):
+def convert_from_blob(blob_image:bytes, path_to_save_file:str) -> bool:
     """Converts a binary to image file"""
-    image_file = open(path_to_save_file, "wb")
-    image_file.write(blob_image)
+    try:
+        logger.debug("Converting Binary data to file.")
+        with open(path_to_save_file, "wb") as image_file:
+            image_file.write(blob_image)
+            logger.debug(f"File saved to: {path_to_save_file}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Unable to convert bytes to file: {e}")
+        return False
 
 #Converts an image to binary
 def convert_to_blob(image_path:str):
@@ -149,6 +166,25 @@ def validate_hex_str(hex_str:str) -> bool:
             return False
     
     return True
+
+def delete_all_files_in_directory(directory_path:str) -> bool:
+    """Deletes all files in a specified directory, returns True if successful, False if not."""
+    try:
+        logger.info(f"Deleting all files in directory: {directory_path}")
+
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+                logger.debug(f"Deleted file: {filename}")
+            
+        return True
+
+    except Exception as e:
+        logger.error(f"Error clearing files from directory: {e}")
+
+        return False
 
 
 """

@@ -220,6 +220,7 @@ class Identify_Slate(Widget):
         self.device_name = information_dict["device_name"]
         self.device_ip = information_dict["device_ip"]
         self.device_location = information_dict["device_location"]
+        self.set_location(self.device_location)
         self.message_group = information_dict["message_group"]
         self.display_instance = information_dict["display_instance"]
         self.device_info_data_list = [self.device_name,
