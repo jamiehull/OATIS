@@ -1,8 +1,6 @@
 from modules.osc import OSC_Server
 from server.router import Router
-from server.controller import Controller
 from server.tcp_server import ThreadedTCPServer, ThreadedTCPRequestHandler
-from database.database_connection import DB
 from modules.common import *
 import threading
 import time

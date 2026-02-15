@@ -716,7 +716,6 @@ class Router:
 
         return output_command, output_arguments, output_data
    
-
     #--------------------------------CONTROLLER-HANDLERS---------------------------------------------------
     #Sends OSC commands over the network given a GPI state change
     def handle_gpi(self, *args):
@@ -735,56 +734,35 @@ class Router:
 
                 #Find the input trigger id
                 input_trigger_id_query_result = self.db.get_1column_data_dual_condition("input_trigger_id", "controller_id", controller_id, "address", address, "input_triggers")
+                
                 if input_trigger_id_query_result != []:
                     input_trigger_id = input_trigger_id_query_result[0]
 
                     self.logger.debug(f"Input Trigger ID {input_trigger_id} changing state to: {state}")
 
-                    #Update the current state of the trigger
+                    #Update the current DB state of the trigger
                     self.db.update_row("input_triggers", "current_state", "input_trigger_id", state, input_trigger_id)
                     self.logger.debug(f"Updated current state in DB for Input Trigger ID {input_trigger_id}")
 
-                    #Find input logics referencing this trigger id and their high condition, adding this to a dict
+                    #Find input logics referencing this trigger id
                     input_logic_id_list = self.db.get_1column_data("input_logic_id", "input_logic_mapping", "input_trigger_id", input_trigger_id)
+                    self.logger.debug(f"Input Logics referencing Trigger ID {input_trigger_id}: {input_logic_id_list}")
                     
-                    input_logic_high_cond_dict = {}
-
                     for input_logic_id in input_logic_id_list:
+                        #Find the high condition
                         high_condition = self.db.get_1column_data("high_condition", "input_logics", "input_logic_id", input_logic_id)[0]
-                        input_logic_high_cond_dict[input_logic_id] = high_condition
-
-                    self.logger.debug(f"Input Logics referencing Trigger ID {input_trigger_id}: {input_logic_high_cond_dict}")
-
-                    #Find triggers contributing to each input logic and get their state
-                    for input_logic_id in input_logic_high_cond_dict:
-                        input_trigger_id_list = self.db.get_1column_data("input_trigger_id", "input_logic_mapping", "input_logic_id", input_logic_id)
-                        state_list = []
-                        for input_trigger_id in input_trigger_id_list:
-                            state = self.db.get_1column_data("current_state", "input_triggers", "input_trigger_id", input_trigger_id)[0]
-                            state_list.append(state)
+                        
+                        #Find the state of all triggers contributing to this input logic
+                        input_trigger_states_list = self.__get_input_trigger_states(input_logic_id)
                         
                         #Test if the input logic is high or low
-                        high_condition  = input_logic_high_cond_dict.get(input_logic_id)
-                        input_logic_state =  self.compare_states(high_condition, state_list)
-                        self.logger.debug(f"Input Logic:{input_logic_id} current state {input_logic_state}")
+                        input_logic_state = self.__get_input_logic_state(high_condition, input_logic_id, input_trigger_states_list)
 
                         #Check if the input logic is used in any display instances
                         display_instance_id_list = self.db.get_1column_data("display_instance_id", "indicator", "input_logic_id", input_logic_id)
 
-                        for display_instance_id in display_instance_id_list:
-                            display_surface_id = self.db.get_1column_data_dual_condition("display_surface_id", "display_instance_id", display_instance_id, "input_logic_id", input_logic_id, "indicator")[0]
-
-                            #Query the database to identify devices associatied with this input_logic
-                            device_list = self.db.get_1column_data("device_ip", "devices", "display_instance_id", display_instance_id)
-        
-                            for device_ip in device_list:
-                                #Device list contains a list of device_ip's that are associatied with the trigger id
-                                #Create a new instance of an OSC client for transmitting information to devices
-                                self.tx: OSC_Client = OSC_Client(device_ip, 1338, "udp")
-
-                                #Send command to device
-                                send_thread = threading.Thread(target=self.tx.send_osc_message, args=("/client/control/signal_lights/", [display_surface_id, input_logic_state]), daemon=True)
-                                send_thread.start()
+                        #Trigger each display instance if any were found to use the input logic
+                        self.__trigger_display_instances(input_logic_id, input_logic_state, display_instance_id_list)
 
                         #Check the DB for any output logics taking this input logic as an input
                         output_logics_id_list = self.db.get_1column_data("output_logic_id", "output_logics", "input_logic_id", input_logic_id)
@@ -792,54 +770,93 @@ class Router:
                         #Check the DB for output_triggers triggered by this output_logic
                         for output_logic_id in output_logics_id_list:
                             output_trigger_id_list = self.db.get_1column_data("output_trigger_id", "output_logic_mapping", "output_logic_id", output_logic_id)
+
                             #Trigger each output trigger
-                            for output_trigger_id in output_trigger_id_list:
-                                #Get the output trigger type
-                                output_type = self.db.get_1column_data("output_type", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                output_controller_id = self.db.get_1column_data("controller_id", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                output_address = self.db.get_1column_data("address", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                if output_type == "GPO":
-                                    self.logger.debug(f"Setting Controller: {output_controller_id} pin:{output_address}, to state:{input_logic_state}")
-                                    self.gpo_output_function(int(output_controller_id), int(output_address), input_logic_state)
+                            self.__trigger_output_triggers(input_logic_state, output_trigger_id_list)
 
-                                elif output_type == "Network":
-                                    ip_address = self.db.get_1column_data("ip_address", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                    port = self.db.get_1column_data("port", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                    protocol = self.db.get_1column_data("protocol", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-
-                                    if input_logic_state == True:
-                                        command = self.db.get_1column_data("command_high", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                        arguments = self.db.get_1column_data("arguments_high", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-
-                                    elif input_logic_state == False:
-                                        command = self.db.get_1column_data("command_low", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-                                        arguments : str = self.db.get_1column_data("arguments_low", "output_triggers", "output_trigger_id", output_trigger_id)[0]
-
-                                    else:
-                                        self.logger.error(f"Invalid Logic State: {input_logic_state}")
-                                    
-                                    #Only send an OSC message if the command has been populated
-                                    if (command != "") and (command != "N/A"):
-                                        #Create a new instance of an OSC client for transmitting information to devices
-                                        self.tx: OSC_Client = OSC_Client(ip_address, port, protocol)
-
-                                        #Extract the string arguments
-                                        args = arguments.split()
-
-                                        #Send command to device
-                                        send_thread = threading.Thread(target=self.tx.send_osc_message, args=(command, args), daemon=True)
-                                        send_thread.start()
-                                else:
-                                    self.logger.error(f"Output Trigger: {output_trigger_id} has invalid output type specified: {output_type}")
+                else:
+                    self.logger.warning(f"Pin {address}, on Controller {controller_id} is not configured as an Input Trigger.")
 
         except Exception as e:
             self.logger.error(f"Unable to handle GPI change event, reason: {e}")
-            traceback.print_exc()
         
         finally:
             #Close connection to database
             self.db.close_connection()
-            pass
+
+    #--------------------------------HANDLE GPI SUB FUNCTIONS--------------------------------------------------- 
+    def __get_input_trigger_states(self, input_logic_id) -> list:
+        input_trigger_id_list = self.db.get_1column_data("input_trigger_id", "input_logic_mapping", "input_logic_id", input_logic_id)
+        state_list = []
+
+        for input_trigger_id in input_trigger_id_list:
+            state = self.db.get_1column_data("current_state", "input_triggers", "input_trigger_id", input_trigger_id)[0]
+            state_list.append(state)
+
+        return state_list
+
+    def __get_input_logic_state(self, high_condition, input_logic_id, state_list) -> bool:
+        input_logic_state =  self.compare_states(high_condition, state_list)
+        self.logger.debug(f"Input Logic:{input_logic_id} current state {input_logic_state}")
+
+        return input_logic_state
+        
+    def __trigger_display_instances(self, input_logic_id, input_logic_state, display_instance_id_list):
+        for display_instance_id in display_instance_id_list:
+
+            display_surface_id = self.db.get_1column_data_dual_condition("display_surface_id", "display_instance_id", display_instance_id, "input_logic_id", input_logic_id, "indicator")[0]
+
+            #Query the database to identify device ips associatied with this input_logic
+            device_list = self.db.get_1column_data("device_ip", "devices", "display_instance_id", display_instance_id)
+
+            for device_ip in device_list:
+                #Create a new instance of an OSC client for transmitting information to devices
+                self.tx: OSC_Client = OSC_Client(device_ip, 1338, "udp")
+
+                #Send command to device
+                send_thread = threading.Thread(target=self.tx.send_osc_message, args=("/client/control/signal_lights/", [display_surface_id, input_logic_state]), daemon=True)
+                send_thread.start()
+
+    def __trigger_output_triggers(self, input_logic_state, output_trigger_id_list):
+        for output_trigger_id in output_trigger_id_list:
+            #Get the output trigger type
+            output_type = self.db.get_1column_data("output_type", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+            output_controller_id = self.db.get_1column_data("controller_id", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+            output_address = self.db.get_1column_data("address", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+
+            if output_type == "GPO":
+                self.logger.debug(f"Setting Controller: {output_controller_id} pin:{output_address}, to state:{input_logic_state}")
+                self.gpo_output_function(int(output_controller_id), int(output_address), input_logic_state)
+
+            elif output_type == "Network":
+                ip_address = self.db.get_1column_data("ip_address", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+                port = self.db.get_1column_data("port", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+                protocol = self.db.get_1column_data("protocol", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+
+                if input_logic_state == True:
+                    command = self.db.get_1column_data("command_high", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+                    arguments = self.db.get_1column_data("arguments_high", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+
+                elif input_logic_state == False:
+                    command = self.db.get_1column_data("command_low", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+                    arguments : str = self.db.get_1column_data("arguments_low", "output_triggers", "output_trigger_id", output_trigger_id)[0]
+
+                else:
+                    self.logger.error(f"Invalid Logic State: {input_logic_state}")
+                
+                #Only send an OSC message if the command has been populated
+                if (command != "") and (command != "N/A"):
+                    #Create a new instance of an OSC client for transmitting information to devices
+                    self.tx: OSC_Client = OSC_Client(ip_address, port, protocol)
+
+                    #Extract the string arguments
+                    args = arguments.split()
+
+                    #Send command to device
+                    send_thread = threading.Thread(target=self.tx.send_osc_message, args=(command, args), daemon=True)
+                    send_thread.start()
+            else:
+                self.logger.error(f"Output Trigger: {output_trigger_id} has invalid output type specified: {output_type}")
 
     def compare_states(self, high_condition:str, state_list:list[bool]) -> bool:
         """Takes a list of booleans and compares them given a logic condition, returning the output."""

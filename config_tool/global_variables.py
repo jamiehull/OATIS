@@ -1,4 +1,3 @@
-import customtkinter as ctk
 
 #Tkinter Window Attributes
 global window_title 

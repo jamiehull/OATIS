@@ -1,15 +1,7 @@
-import customtkinter as ctk
-import tkinter as tk
-from tkinter import StringVar
-from config_tool.validation import validate_ip
 from serial.tools.list_ports import comports
 from config_tool.message_boxes import *
-from tkinter import messagebox
-from tkinter import filedialog
 from modules.gui_templates import *
-import shutil
 import os
-import logging
 from config_tool.global_variables import *
 import datetime
 from modules.common import *

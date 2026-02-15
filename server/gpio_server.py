@@ -4,7 +4,6 @@ from threading import Thread
 from threading import Lock
 import logging
 from server.router import Router
-import time
 from modules.exceptions import Unable_To_Start_Exception
  
 class GPIO_Server:

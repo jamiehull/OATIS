@@ -129,43 +129,4 @@ class GUI:
         frame_widget.on_raise_callback()
         self.logger.info(f"Updated {selection} tree and combobox values.")
 
-    def set_scaling(self):
-        self.root.update_idletasks()
-        #Get the size of the window for other classees to use for scaling
-        self.width = self.root.winfo_width()
-        self.height = self.root.winfo_height()
-        self.logger.info(f"The screen size is {self.width}x{self.height}")
-
-        #Store the screen size in the global dictionary
-        screen_info["width"] = self.width
-        screen_info["height"] = self.height
-
-        #Set Font sizes based on window size - store these in the global dictionary
-        if self.width > 1920:
-            screen_info["date_text_size"] = xlarge_font_size
-            screen_info["location_text_size"] = xlarge_font_size
-            screen_info["clock_text_size"] = xlarge_font_size
-            screen_info["indicator_text_size"] = xlarge_font_size
-            screen_info["ticker_text_size"] = alt1_xlarge_font_size
-            screen_info["logo_dimensions"] = xlarge_image
-        if self.width == 1920:
-            screen_info["date_text_size"] = large_font_size
-            screen_info["location_text_size"] = large_font_size
-            screen_info["clock_text_size"] = large_font_size
-            screen_info["indicator_text_size"] = large_font_size
-            screen_info["ticker_text_size"] = alt1_large_font_size
-            screen_info["logo_dimensions"] = large_image
-        if (self.width >= 1280) & (self.width < 1920):
-            screen_info["date_text_size"] = medium_font_size
-            screen_info["location_text_size"] = medium_font_size
-            screen_info["clock_text_size"] = medium_font_size
-            screen_info["indicator_text_size"] = medium_font_size
-            screen_info["ticker_text_size"] = alt1_medium_font_size
-            screen_info["logo_dimensions"] = medium_image
-        if self.width < 1280:
-            screen_info["date_text_size"] = small_font_size
-            screen_info["location_text_size"] = small_font_size
-            screen_info["clock_text_size"] = small_font_size
-            screen_info["indicator_text_size"] = small_font_size
-            screen_info["ticker_text_size"] = alt1_small_font_size
-            screen_info["logo_dimensions"] = small_image
+    

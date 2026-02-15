@@ -2,7 +2,6 @@ import customtkinter as ctk
 import logging
 from tkinter import ttk
 from tkinter import colorchooser
-import json
 import tkinter as tk
 import time
 import threading
@@ -268,6 +267,7 @@ class Message_Console:
         self.logger.debug(f"Selected items by ID: {items_list}")
         for tree_id in items_list:
             self.column3_frame.remove_item(tree_id)
+
     #Removes selected items from the active message groups column
     def __remove_group_from_active(self):
         items_list = self.column5_frame.get_selected_items_id()
@@ -368,6 +368,7 @@ class Message_Console:
             except ConnectionRefusedError as e:
                 self.logger.error(f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
                 messagebox.showwarning("Unable to Send Message", f"Cannot connect to server, the server may not be running or IP set incorrectly: {e}")
+
             except Exception as e:
                 self.logger.error(f"Cannot connect to server: {e}")
                 messagebox.showwarning("Unable to Send Message", f"Cannot connect to server: {e}")
@@ -511,7 +512,6 @@ class Settings(ctk.CTkFrame):
         self.mode_var = tk.StringVar()
 
         #Set Default font
-        #font_size = screen_info.get("top_level_text_size")
         font_size = 30
         self.default_font = ctk.CTkFont('Arial', font_size)
 
@@ -541,13 +541,7 @@ class Settings(ctk.CTkFrame):
 
         self.server_ip_entry = ctk.CTkEntry(self.container_frame, font=self.default_font, textvariable=self.server_ip_var)
         self.server_ip_entry.grid(column = 0, row = 3, sticky = "ew", columnspan = 2, padx=10, pady=20)
-        """
-        self.mode_label = ctk.CTkLabel(self.container_frame, text="Mode:", anchor="w", font = self.default_font)
-        self.mode_label.grid(column = 0, row = 4, sticky = "ew", columnspan = 2, padx=10, pady=20)
 
-        self.mode_combobox = ctk.CTkComboBox(self.container_frame, width=300, font=self.default_font, state="readonly", variable=self.mode_var, dropdown_font=self.default_font)
-        self.mode_combobox.grid(column = 0, row = 5, sticky = "ew", columnspan = 2, padx=10, pady=20)
-        """
         self.save_btn = ctk.CTkButton(self.container_frame, text="Save", font=self.default_font, fg_color="green", command=lambda:self.__save_entry_data(), width=500)
         self.save_btn.grid(column = 0, row = 6, sticky = "", columnspan = 1, padx=10, pady=20)
 

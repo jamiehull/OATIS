@@ -21,31 +21,8 @@ import shutil
 
 #-------------------------Base-Widgets-------------------------
 #Base frame used in each tab in the config window
-class BaseFrame(ctk.CTkFrame):
-     def __init__(self, parent, database_connection):
-          super().__init__(parent)
-
-          #Setup Logging
-          self.logger = logging.getLogger(__name__)
-
-          #Database connection object to be able to manipulate the database
-          self.db : DB = database_connection
-
-          #Set Default font
-          self.default_font = ctk.CTkFont(default_font, default_size)
-
-          #Setup Columns / rows for config_frame
-          self.columnconfigure(0, weight=0)
-          for i in range(1,4):
-               self.columnconfigure(i, weight=1)
-
-          self.rowconfigure(0, weight=1)
-          self.rowconfigure(1, weight=0)
-          self.rowconfigure(2, weight=0)
-
-#Base frame used in each tab in the config window
-"""Base Frame used to construct a config window. Args are used to pass in each row of type Input_Row"""
 class BaseFrameNew(ctk.CTkFrame):
+     """Base Frame used to construct a config window. Args are used to pass in each row of type Input_Row"""
      def __init__(self, parent, database_connection, scrollable:bool):
           super().__init__(parent)
 
@@ -163,7 +140,6 @@ class BaseFrameNew(ctk.CTkFrame):
                          self.logger.debug(f"Aborted Deleting item with ID {in_focus_db_id} as it is in use.")
                          delete_warning(feedback)
 
-
      #Updates the treeviewer list to the current database state - called by the gui menu buttons and save button
      def update_tree(self):
           new_tree_rows = self.db.get_2column_data(self.id_column, self.name_column, self.table)
@@ -277,13 +253,8 @@ class BaseFrameNew(ctk.CTkFrame):
           self.db : DB
           return self.db
 
-
-"""Makes an input frame with row's of input widgets.
-Takes a list of Input_Rows as arguments.
-Input rows are either Input_Row objects, String titles or a custom widget class.
-Valid Widget Types: title, combobox, entry, dual_selection_columns"""
-
 class Input_Frame(ctk.CTkFrame):
+     """Makes an input frame with row's of input widgets. Takes a list of Input_Rows as arguments. Input rows are either Input_Row objects, String titles or a custom widget class. Valid Widget Types: title, combobox, entry, dual_selection_columns"""
      def __init__(self, parent, title:str, input_rows:list, scroll:bool, database_connection:DB):
           super().__init__(parent)
 
@@ -561,7 +532,6 @@ class Input_Frame(ctk.CTkFrame):
           entry_widget = entry_widget_data.input_widget
           entry_widget.configure(command=combobox_command)
 
-
 #-------------------------Diplay Template-Widgets-------------------------
 class Display_Builder_Base_Frame(ctk.CTkFrame):
      """Container Frame to hold Screen Builder Widgets and methods."""
@@ -581,7 +551,6 @@ class Display_Builder_Base_Frame(ctk.CTkFrame):
           self.rowconfigure(0, weight=0) 
           self.rowconfigure(1, weight=0)
           self.rowconfigure(2, weight=1)
-          #self.rowconfigure(3, weight=1)
                
           self.columnconfigure(0, weight=2)
           self.columnconfigure(1, weight=1)
@@ -600,9 +569,6 @@ class Display_Builder_Base_Frame(ctk.CTkFrame):
 
           self.surface_selector_frame = Surface_Selector(self, self.set_display_area_number)
           self.surface_selector_frame.grid(column=1, row=1, columnspan=1, rowspan=2, sticky="nsew")
-
-          #self.widget_settings_frame = ctk.CTkFrame(self, fg_color="green")
-          #self.widget_settings_frame.grid(column=1, row=1, columnspan=1, rowspan=3, sticky="nsew")
 
           self.widget_selector_frame = Widget_Selector(self)
           self.widget_selector_frame.grid(column=0, row=2, columnspan=1, rowspan=1, sticky="nsew")
@@ -697,14 +663,14 @@ class Display_Builder_Base_Frame(ctk.CTkFrame):
           print(f"Selected Display Area: {self.selected_display_area}")
 
      def surface_id_assign(self, coordinate:tuple):
-          """Sets the selected coordiante and updates the button label with the chosen display area."""
+          """Sets the selected coordinate and updates the button label with the chosen display area."""
           self.selected_grid_coordinate = coordinate
           print(f"Selected Coordinate: {self.selected_grid_coordinate}")
           if self.selected_display_area != "":
                self.grid_builder_frame.set_display_area_var(coordinate, self.selected_display_area)
 
      def widget_assign(self, display_area_id):
-          self.logger.debug(f"LETS ASSIGN A WIDGET! to {display_area_id}")
+          self.logger.debug(f"Assigning a widget to {display_area_id}")
 
           #Retrieve the selected widget
           selected_widget_string = self.widget_selector_frame.get_selected_widget()

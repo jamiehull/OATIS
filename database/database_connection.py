@@ -53,16 +53,15 @@ class DB:
 
     def connect(self):
         #Create a connection to the database
-        self.logger.info("Connecting to database")
         self.connection = sqlite3.connect("database/oatis_db")
         #Create a cursor object to manipulate the database
         self.cursor = self.connection.cursor()
-        self.logger.info("Connection established")
+        self.logger.info("Connected to the Database")
 
     def close_connection(self):
         #Create a connection to the database
-        self.logger.info("Closing connection to database")
         self.connection.close()
+        self.logger.info("Closed connection to Database")
 
     def verify_database_setup(self):
         self.logger.info("Verifying the database is valid")
@@ -84,7 +83,7 @@ class DB:
         self.logger.info(f"Found {table_count} valid tables in the database, required {self.total_number_tables}")
         
         if table_count == self.total_number_tables:
-            self.logger.info("All required tables present")
+            self.logger.info("Database is Valid.")
             return True
         
         else:
@@ -335,13 +334,13 @@ class DB:
         
         
         #Default database entries for the system to work
+        self.logger.debug("Adding default database entries.")
         self.add_controller_type("Network", "Network", 0, 0, 0, 0, 0)
         self.add_controller_type("Arduino", "UNO", 18, 2, 20, 14, 20)
         self.add_controller_type("Arduino", "MEGA", 52, 2, 54, 0, 0)
 
         self.__add_network_controller(0, "Network", "Network", "N/A", "N/A", "Network", "N/A", "N/A")
 
-        self.logger.debug(f"Commiting Changes")
         self.connection.commit()
         self.logger.info("Database Initialised")
 
@@ -440,7 +439,6 @@ class DB:
     #Add an input_trigger entry to the database
     """Current state should be set to False by default"""
     def add_input_trigger(self, input_trigger_name:str, controller_id:str, address:str, current_state:bool):
-        self.logger.debug(f"Querying database with data: Input Trigger Name:{input_trigger_name}, Controller ID:{controller_id}, Address:{address}")
         #Insert a new value into the database table
         self.cursor.execute(f"INSERT INTO input_triggers (input_trigger_name, controller_id, address, current_state) VALUES (?,?,?,?)",(input_trigger_name, controller_id, address, current_state))
         self.connection.commit()   
@@ -561,6 +559,7 @@ class DB:
             self.cursor.execute(f"DELETE FROM {table_name} WHERE {condition} = ?",(id,))
             self.connection.commit()
             return True
+        
         except Exception as e:
             self.logger.error(f"Error in deleting item: {e}")
             return e
@@ -591,26 +590,20 @@ class DB:
     
     #Generic function to get all column data for a specified row in a specified table given the item id
     def get_current_row_data(self, table_name, condition, id):
-        self.logger.debug("Querying the database")
         self.cursor.execute(f"SELECT * FROM {table_name} WHERE {condition} = ?",(id,))
         row = self.cursor.fetchall()
-        #self.logger.debug(f"Returned data:{row}")
         return row
     
     #Generic function to return all rows that meet the specified contition, sorting ascending by the specifiec sort column.
     def get_rows_condition_sort_asc(self, table_name, condition, condition_value, sort_column):
-        self.logger.debug("Querying the database")
         self.cursor.execute(f"SELECT * FROM {table_name} WHERE {condition} = ? ORDER BY {sort_column} ASC",(condition_value,))
         row = self.cursor.fetchall()
-        #self.logger.debug(f"Returned data:{row}")
         return row
     
     #Generic function to return all columns for the row matching both conditions
     def get_current_row_data_dual_condition(self, table_name, condition1, value1, condition2, value2):
-        self.logger.debug("Querying the database")
         self.cursor.execute(f"SELECT * FROM {table_name} WHERE {condition1} = (?) AND {condition2} = (?)",(value1,value2,))
         row = self.cursor.fetchall()
-        #self.logger.debug(f"Returned data:{row}")
         return row
     
     def update_trigger_mapping(self, table_name, condition1, value1, condition2, value2, controller_id, gpi):
@@ -644,7 +637,6 @@ class DB:
         if len(data) == 0 :
             #Return the blank list
             returned_data : list = data
-            self.logger.debug("Database Query Returned No Results")
         
         #If one or more result is returned
         if len(data) >= 1:
@@ -657,9 +649,7 @@ class DB:
 
             #Return the populated list
             returned_data : list = return_list
-            self.logger.debug("Database Query Returned 1 or More Results")
         
-        self.logger.debug(f"Database Returned: {returned_data}")
         return returned_data
 
     #Generic function to get all data for 2 selected columns in a selected table
