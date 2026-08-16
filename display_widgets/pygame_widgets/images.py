@@ -43,8 +43,11 @@ class Static_Image(Widget):
 
         #Load the image from file
         try:
+            self.logger.debug(f"Loading image file {self.image_path}")
             image = pygame.image.load(join(self.image_path))
         except:
+            self.logger.error(f"Loading image file: {self.image_path} failed.")
+            self.logger.debug(f"Falling back to default image file: {self.default_image_path}")
             image = pygame.image.load(join(self.default_image_path))
 
         #Resize the image to fit the surface dimensions with padding

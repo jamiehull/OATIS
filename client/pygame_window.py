@@ -49,6 +49,8 @@ class Window:
         self.display_template_path = path.abspath(path.join(path.dirname(__file__), "data/display_template.json"))
         self.image_stacks_path = path.abspath(path.join(path.dirname(__file__), "data/image_stacks.json"))
         self.images_path = path.abspath(path.join(path.dirname(__file__), "data/images"))
+        if not os.path.exists(self.images_path):
+            os.makedirs(self.images_path)
         self.settings_path = path.abspath(path.join(path.dirname(__file__), "data/settings.json"))
 
         #Device information store
